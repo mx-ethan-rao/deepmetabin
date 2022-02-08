@@ -63,7 +63,7 @@ class GraphAttentionBlock(nn.Module):
             mask_matrix (tensor): masked matrix;
 
         Returns:
-            output (tensor): result from the multi-head attention block. 
+            output (tensor): result from the multi-head attention block.
         """
         Q_h = self.Q(h)
         K_h = self.K(h)
@@ -120,8 +120,18 @@ class GraphTransformerBlock(nn.Module):
         self.projection_layer = nn.Linear(output_dim, output_dim)
         self.batch_norm = nn.BatchNorm1d(output_dim)
 
-    def forward(self, g, h):
-        attention_output = self.attention(g, h).view(-1, self.output_dim)
+    def forward(self, h, adj_matrix, mask_matrix):
+        """forward function of transformer block, support one block of attention for now.
+        
+        Args:
+            h (tensor): input of graph tensor, dimension is (B, N, D);
+            adj_matrix (tensor): normalized adjacent matrix;
+            mask_matrix (tensor): masked matrix;
+
+        Returns:
+            attention_out (tensor): result from transformer block.
+        """
+        attention_output = self.attention(h, adj_matrix, mask_matrix)
         attention_output = F.relu(attention_output)
         attention_output = self.batch_norm(attention_output)
         return attention_output
@@ -197,8 +207,10 @@ class VAE(nn.Module):
             latent = mu + epsilon * torch.exp(sigma/2)
             return latent
 
-        def encode(self, graph, input):
-            latent = self.encoder(graph, input)
+        def encode(self, h, adj_matrix, mask_matrix):
+            latent = h
+            for i in range(self.num_blocks):
+                latent = self.encoder[i](latent, adj_matrix, mask_matrix)
             mu = self.mu_mlp(latent)
             sigma = self.sigma_mlp(latent)
             return mu, sigma
