@@ -37,6 +37,7 @@ class GraphAttentionBlock(nn.Module):
     def propagate_graph_attention(self, Q_h, K_h, V_h, adj_matrix, mask_matrix):
         """ This function performs for the aggregation of graph network based on the
         output of single head Q_h, K_h, V_h, adjacent matrix, mask matrix.
+
         Args:
             Q_h (tensor): Querys, dimention is (B, N, D);
             K_h (tensor): Keys, dimention is (B, N, D);
@@ -54,6 +55,16 @@ class GraphAttentionBlock(nn.Module):
         return attention_output
 
     def forward(self, h, adj_matrix, mask_matrix):
+        """forward function of Attention block.
+
+        Args:
+            h (tensor): input of graph tensor, dimension is (B, N, D);
+            adj_matrix (tensor): normalized adjacent matrix;
+            mask_matrix (tensor): masked matrix;
+
+        Returns:
+            output (tensor): result from the multi-head attention block. 
+        """
         Q_h = self.Q(h)
         K_h = self.K(h)
         V_h = self.V(h)
@@ -184,6 +195,7 @@ class VAE(nn.Module):
             """
             epsilon = torch.randn(mu.size(0), mu.size(1)).type_as(mu)
             latent = mu + epsilon * torch.exp(sigma/2)
+            return latent
 
         def encode(self, graph, input):
             latent = self.encoder(graph, input)
