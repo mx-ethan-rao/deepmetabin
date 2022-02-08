@@ -1,9 +1,6 @@
-from re import M
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import dgl
-import dgl.function as fn
 import numpy as np
 
 
@@ -31,36 +28,51 @@ class GraphAttentionBlock(nn.Module):
         super().__init__()
         self.output_dim = output_dim
         self.num_heads = num_heads
+        self.dim_per_head = output_dim // num_heads
 
-        self.Q = nn.Linear(input_dim, output_dim * num_heads, bias=use_bias)
-        self.K = nn.Linear(input_dim, output_dim * num_heads, bias=use_bias)
-        self.V = nn.Linear(input_dim, output_dim * num_heads, bias=use_bias)
+        self.Q = nn.Linear(input_dim, output_dim, bias=use_bias)
+        self.K = nn.Linear(input_dim, output_dim, bias=use_bias)
+        self.V = nn.Linear(input_dim, output_dim, bias=use_bias)
 
-    def propagate_graph_attention(self, g):
-        """ This function performs for the aggregation of graph network, use dgl 
-        implementation for now, could be substituded.
+    def propagate_graph_attention(self, Q_h, K_h, V_h, adj_matrix, mask_matrix):
+        """ This function performs for the aggregation of graph network based on the
+        output of single head Q_h, K_h, V_h, adjacent matrix, mask matrix.
         Args:
-            g (dgl graph object): graph g to compute attention.
+            Q_h (tensor): Querys, dimention is (B, N, D);
+            K_h (tensor): Keys, dimention is (B, N, D);
+            V_h (tensor): Values, dimention is (B, N, D);
+            adj_matrix (tensor): normalized adjacent matirx, dimension is (B, N, N);
+            mask_matrix (tensor): masked matrix, dimension is (B, N, N);
+
+        Returns:
+            h (tensor): calculation results of self-attention mechanisms.
         """
-        g.apply_edges('K_h', 'Q_h', 'score')
-        g.apply_edges('score', np.sqrt(self.output_dim))
+        K_h_transpose = torch.transpose(K_h, 1, 2) # dim B, D, N
+        score = (adj_matrix * torch.matmul(Q_h, K_h_transpose) + mask_matrix) / np.sqrt(self.dim_per_head)
+        attention_score = nn.Softmax(dim=2)(score) # dim B, N, N
+        attention_output = torch.matmul(attention_score, V_h) # dim B, N, D
+        return attention_output
 
-        edges = g.edges()
-        g.send_and_recv(edges, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
-
-
-    def forward(self, g, h):
+    def forward(self, h, adj_matrix, mask_matrix):
         Q_h = self.Q(h)
         K_h = self.K(h)
         V_h = self.V(h)
 
-        g.ndata['Q_h'] = Q_h.view(-1, self.num_heads, self.output_dim)
-        g.ndata['K_h'] = K_h.view(-1, self.num_heads, self.output_dim)
-        g.ndata['V_h'] = V_h.view(-1, self.num_heads, self.output_dim)
-
-        self.propagate_graph_attention(g)
-        output = g.ndata['wV']
-
+        Q_multi_head_h = Q_h.view(-1, self.num_heads, self.dim_per_head) # dim B, N, H, D
+        K_multi_head_h = K_h.view(-1, self.num_heads, self.dim_per_head) # dim B, N, H, D
+        V_multi_head_h = V_h.view(-1, self.num_heads, self.dim_per_head) # dim B, N, H, D
+        
+        heads_output_list = []
+        for i in range(self.num_heads):
+            single_head_output = self.propagate_graph_attention(
+                Q_h=Q_multi_head_h[:, :, i],
+                K_h=K_multi_head_h[:, :, i],
+                V_h=V_multi_head_h[:, :, i],
+                adj_matrix=adj_matrix,
+                mask_matrix=mask_matrix,
+            ) # dim B, N, D
+            heads_output_list.append(single_head_output)
+        output = torch.cat(heads_output_list, dim=2) # dim B, N, D*H
         return output
 
 
@@ -91,7 +103,7 @@ class GraphTransformerBlock(nn.Module):
         self.output_dim = output_dim
         self.num_heads = num_heads
 
-        self.attention = GraphAttentionBlock(input_dim, output_dim//num_heads, num_heads, use_bias)
+        self.attention = GraphAttentionBlock(input_dim, output_dim, num_heads, use_bias)
 
         # optional
         self.projection_layer = nn.Linear(output_dim, output_dim)
@@ -156,7 +168,7 @@ class VAE(nn.Module):
             ))
 
         for in_dim, out_dim in zip(self.out_channels[::-1], self.in_channels[::-1]):
-            self.decoder.append(GraphAttentionBlock(
+            self.decoder.append(GraphTransformerBlock(
                 input_dim=in_dim,
                 output_dim=out_dim,
                 num_heads=self.num_heads,
@@ -173,8 +185,8 @@ class VAE(nn.Module):
             epsilon = torch.randn(mu.size(0), mu.size(1)).type_as(mu)
             latent = mu + epsilon * torch.exp(sigma/2)
 
-        def encode(self, gragh, input):
-            latent = self.encoder(gragh, input)
+        def encode(self, graph, input):
+            latent = self.encoder(graph, input)
             mu = self.mu_mlp(latent)
             sigma = self.sigma_mlp(latent)
             return mu, sigma
