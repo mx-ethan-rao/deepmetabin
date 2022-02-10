@@ -2,6 +2,7 @@ import scipy
 import scipy.sparse as sp
 import networkx as nx
 import numpy as np
+from numpy import load
 from torch.utils.data import Dataset
 
 
@@ -82,8 +83,10 @@ class GraphDataset(Dataset):
 
     @staticmethod
     def _load_graph_attrs(graph_attrs_path: str):
-        #TODO: function to load the graph attrs from bam file.
-        return graph_attrs_path
+        attrs_file = load(graph_attrs_path)
+        attrs_name = attrs_file.files[0] # keys 
+        attrs = attrs_file[attrs_name]
+        return attrs
 
     @staticmethod
     def _describe_grpah(graph: nx.Graph):
