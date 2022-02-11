@@ -215,11 +215,32 @@ class VAE(nn.Module):
             sigma = self.sigma_mlp(latent)
             return mu, sigma
 
-        def decode(self, latent):
-            return self.decoder(latent)
+        def decode(self, resample, adj_matrix, mask_matrix):
+            latent = resample
+            for i in range(self.num_blocks):
+                latent = self.decoder[i](latent, adj_matrix, mask_matrix)
+            return latent
 
-        def forward(self, graph, input):
-            mu_estimate, sigma_estimate = self.encode(graph, input)
+        def forward(self, batch):
+            """Forward function of VAE model, which takes the batch item,
+            a dictionary object as input, including graph attributes and 
+            adjacency matrix and mask matrix.
+
+            Args:
+                batch (dictionary): includes three attributes:
+                    "graph_attrs": graph vector (B, N, D);
+                    "adj_matrix": adjacency matrix dim (B, N, N);
+                    "mask_matrix": masked matrix (B, N, N);
+
+            Returns:
+                reconstruct (tensor): output from VAE model.
+            """
+            h = batch["graph_attrs"]
+            adj_matrix = batch["adj_matrix"]
+            mask_matrix = batch["mask_matrix"]
+            mu_estimate, sigma_estimate = self.encode(
+                h, adj_matrix, mask_matrix 
+            )
             resample = self.reparameterize(mu_estimate, sigma_estimate)
             reconstruct = self.decode(resample)
             return reconstruct

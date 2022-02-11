@@ -43,7 +43,6 @@ class GMGATDataModule(pl.LightningDataModule):
             dataset=dataset,
             lengths=self.train_val_test_split,
             generator=torch.Generator().manual_seed(42),
-
         )
 
     def train_dataloader(self):

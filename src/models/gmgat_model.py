@@ -1,5 +1,6 @@
 import torch
 import torchmetrics
+import torch.nn as nn
 import pytorch_lightning as pl
 from src.models.modules.gmgat import VAE
 from torch.optim import Adam
@@ -44,13 +45,19 @@ class GMGATModel(pl.LightningModule):
             use_bias=use_bias,
         )
 
+        # loss
+        self.l2_distance = nn.MSELoss()
+
     def forward(self, graph, input):
         return self.VAE(graph, input)
         
-    def training_step(self, batch, batch_idx):
-        graph, input = batch
-        predicts = self.VAE(graph, input)
-        # TODO: loss and logger.
+    def training_step(self, batch, batch_idx):        
+        attributes = batch["graph_attrs"]
+        reconstruct = self.VAE(batch)
+        
+        # TODO: add loss and logger.
+        l2_distance = self.l2_distance(attributes, reconstruct)
+        return {"loss": l2_distance}
 
     def test_step(self):
         pass
