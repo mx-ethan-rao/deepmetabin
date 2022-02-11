@@ -25,7 +25,7 @@ class GraphAttentionBlock(nn.Module):
             K (nn.Linear): Keys matrix.
             V (nn.Linear): Values matrix.
         """
-        super().__init__()
+        super(GraphAttentionBlock, self).__init__()
         self.output_dim = output_dim
         self.num_heads = num_heads
         self.dim_per_head = output_dim // num_heads
@@ -109,7 +109,7 @@ class GraphTransformerBlock(nn.Module):
                 attention mechanism.
             batch_norm (nn.BatchNorm1d): normalization.
         """
-        super().__init__()
+        super(GraphTransformerBlock, self).__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.num_heads = num_heads
@@ -164,7 +164,7 @@ class VAE(nn.Module):
                 attention mechanism.
             batch_norm (nn.BatchNorm1d): normalization.
         """
-        super().__init__()
+        super(VAE, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.num_heads = num_heads
@@ -173,7 +173,7 @@ class VAE(nn.Module):
         self.num_blocks = num_blocks
         self.use_bias = use_bias
 
-        assert len(self.in_channels) == len(self.out_channels) == self.num_blocks
+        # assert len(self.in_channels) == len(self.out_channels) == self.num_blocks
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()
         self.mu_mlp = nn.Linear(self.out_channels[-1], self.latent_dim)

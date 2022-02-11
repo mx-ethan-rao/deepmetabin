@@ -16,6 +16,7 @@ class GMGATModel(pl.LightningModule):
         dropout=0.1,
         num_blocks=2,
         use_bias=True,
+        lr=0.0001,
         *args,
         **kwargs,
     ):
@@ -33,9 +34,10 @@ class GMGATModel(pl.LightningModule):
             use_bias (boolean): whether to use bias in attention block.
 
         Attrs:
-            VAE (VAE): trainable VAE model.
+            GMGAT (VAE): trainable VAE model.
         """
-        self.VAE = VAE(
+        super().__init__()
+        self.GMGAT = VAE(
             in_channels=in_channels,
             out_channels=out_channels,
             num_heads=num_heads,
@@ -44,16 +46,17 @@ class GMGATModel(pl.LightningModule):
             num_blocks=num_blocks,
             use_bias=use_bias,
         )
+        self.lr = lr
 
         # loss
         self.l2_distance = nn.MSELoss()
 
     def forward(self, graph, input):
-        return self.VAE(graph, input)
+        return self.GMGAT(graph, input)
         
     def training_step(self, batch, batch_idx):        
         attributes = batch["graph_attrs"]
-        reconstruct = self.VAE(batch)
+        reconstruct = self.GMGAT(batch)
         
         # TODO: add loss and logger.
         l2_distance = self.l2_distance(attributes, reconstruct)
@@ -63,7 +66,7 @@ class GMGATModel(pl.LightningModule):
         pass
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=1e-4)
+        return Adam(self.parameters(), lr=self.lr)
 
     def on_epoch_end(self) -> None:
         # remove the cached accuracy here.

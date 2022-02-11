@@ -1,6 +1,6 @@
 import torch
 import pytorch_lightning as pl
-from datasets.graph_dataset import GraphDataset
+from src.datamodules.datasets.graph_dataset import GraphDataset
 from torch.utils.data import DataLoader, random_split
 
 
@@ -34,7 +34,7 @@ class GMGATDataModule(pl.LightningDataModule):
     def prepare_data(self):
         pass
 
-    def setup(self):
+    def setup(self, stage=None):
         dataset = GraphDataset(
             graph_dataset_roots=self.graph_dataset_roots,
             graph_attrs_dataset_roots=self.graph_attrs_dataset_roots,

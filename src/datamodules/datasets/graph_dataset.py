@@ -111,10 +111,10 @@ class GraphDataset(Dataset):
         diags = adj_matrix.sum(axis=1).A1 # degree vector.
         with scipy.errstate(divide="ignore"):
             sqrt = 1.0 / np.sqrt(diags)
-        sqrt[np.isinf[sqrt]] = 0 # remove infinte value as zero.
+        sqrt[np.isinf(sqrt)] = 0 # remove infinte value as zero.
         D = sp.diags(sqrt, format='csr')
         adj_normalized_matrix = D @ adj_matrix @ D
-        adj_normalized_matrix = adj_normalized_matrix.toarray().as_type(np.half)
+        adj_normalized_matrix = adj_normalized_matrix.toarray().astype(np.half)
         return adj_normalized_matrix
 
     @staticmethod

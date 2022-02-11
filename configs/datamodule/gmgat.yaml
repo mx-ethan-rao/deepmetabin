@@ -1,0 +1,8 @@
+_target_: src.datamodules.gmgat_datamodule.GMGATDataModule
+
+graph_dataset_roots: ["/home/comp/cswcgao/binning/SPAdes-3.15.3-Linux/bin/metaspades_out/METAMVGL_out/graph.ag"]
+graph_attrs_dataset_roots: ["/home/comp/cswcgao/binning/SPAdes-3.15.3-Linux/bin/metaspades_out/METAMVGL_out/MetaBat2/out/latent.npz"]
+batch_size: 1
+train_val_test_split: [1, 0, 0]
+num_workers: 0
+pin_memory: False
