@@ -19,7 +19,7 @@ class GraphDataset(Dataset):
         self,
         graph_dataset_roots=[],
         graph_attrs_dataset_roots=[],
-        *args,
+        *args,pip install networkx[default]
         **kwargs,
     ) -> None:
         super().__init__()

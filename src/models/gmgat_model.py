@@ -49,18 +49,26 @@ class GMGATModel(pl.LightningModule):
         self.lr = lr
 
         # loss
-        self.l2_distance = nn.MSELoss()
-
+        self.losses = LossFunction()
+        
     def forward(self, graph, input):
         return self.GMGAT(graph, input)
         
     def training_step(self, batch, batch_idx):        
         attributes = batch["graph_attrs"]
-        reconstruct = self.GMGAT(batch)
+        reconstruct, mu_estimate, sigma_estimate = self.GMGAT(batch)
         
         # TODO: add loss and logger.
-        l2_distance = self.l2_distance(attributes, reconstruct)
-        return {"loss": l2_distance}
+        reconstruction_loss = self.losses.reconstruction_loss(
+            ground_truth=attributes,
+            reconstruct=reconstruct,
+        )
+        KL_loss = self.losses.KL_loss(
+            mu_estimate=mu_estimate,
+            sigma_estimate=sigma_estimate
+        )
+        loss = reconstruction_loss + KL_loss
+        return {"loss": loss}
 
     def test_step(self):
         pass
@@ -71,3 +79,39 @@ class GMGATModel(pl.LightningModule):
     def on_epoch_end(self) -> None:
         # remove the cached accuracy here.
         return super().on_epoch_end()
+
+
+class LossFunction:
+    def __init__(self):
+        self.l2_distance = nn.MSELoss()
+
+    def reconstruction_loss(self, ground_truth, reconstruct):
+        """Calculated the reconstruction loss between the ground truth
+        graph attributes and reconstruction results from decoder.
+        
+        Args:
+            ground_truth (tensor): ground truth of graph embedding.
+            reconstruct (tensor): reconstruction of graph embedding.
+
+        Returns:
+            reconstuction_loss (tensor): reconstruction loss.
+        """
+        reconstruction_loss = self.l2_distance(ground_truth, reconstruct)
+        return reconstruction_loss
+
+    def KL_loss(self, mu_estimate, sigma_estimate):
+        """ Calculated the KL divergence loss between normal distribution
+        and estimated distribution from encoder.
+
+        Args:
+            mu_estimate (tensor): estimate mu from encoder.
+            sigma_esimate (tenor): estimate log(sigma) from encoder.
+
+        Returns:
+            KL_loss (tensor): KL_loss.
+        """
+        
+        KL_loss = -0.5 * (
+            1 + sigma_estimate - mu_estimate.pow(2) - sigma_estimate.exp()
+        ).sum(dim=1).mean()
+        return KL_loss

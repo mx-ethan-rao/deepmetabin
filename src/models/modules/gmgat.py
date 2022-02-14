@@ -234,6 +234,8 @@ class VAE(nn.Module):
 
             Returns:
                 reconstruct (tensor): output from VAE model.
+                mu_estimate (tensor): estimate mean vector.
+                sigma_estimate (tensor): estimiate sigma vector.
             """
             h = batch["graph_attrs"]
             adj_matrix = batch["adj_matrix"]
@@ -243,4 +245,4 @@ class VAE(nn.Module):
             )
             resample = self.reparameterize(mu_estimate, sigma_estimate)
             reconstruct = self.decode(resample)
-            return reconstruct
+            return reconstruct, mu_estimate, sigma_estimate
