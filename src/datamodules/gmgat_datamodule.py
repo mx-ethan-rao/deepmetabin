@@ -30,6 +30,7 @@ class GMGATDataModule(pl.LightningDataModule):
         self.train_val_test_split = train_val_test_split
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.pin_memory = pin_memory
     
     def prepare_data(self):
         pass

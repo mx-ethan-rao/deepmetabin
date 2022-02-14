@@ -65,13 +65,14 @@ class GraphAttentionBlock(nn.Module):
         Returns:
             output (tensor): result from the multi-head attention block.
         """
+        B, N, D = h.shape
         Q_h = self.Q(h)
         K_h = self.K(h)
         V_h = self.V(h)
 
-        Q_multi_head_h = Q_h.view(-1, self.num_heads, self.dim_per_head) # dim B, N, H, D
-        K_multi_head_h = K_h.view(-1, self.num_heads, self.dim_per_head) # dim B, N, H, D
-        V_multi_head_h = V_h.view(-1, self.num_heads, self.dim_per_head) # dim B, N, H, D
+        Q_multi_head_h = Q_h.view(B, N, self.num_heads, self.dim_per_head) # dim B, N, H, D
+        K_multi_head_h = K_h.view(B, N, self.num_heads, self.dim_per_head) # dim B, N, H, D
+        V_multi_head_h = V_h.view(B, N, self.num_heads, self.dim_per_head) # dim B, N, H, D
         
         heads_output_list = []
         for i in range(self.num_heads):
@@ -133,7 +134,7 @@ class GraphTransformerBlock(nn.Module):
         """
         attention_output = self.attention(h, adj_matrix, mask_matrix)
         attention_output = F.relu(attention_output)
-        attention_output = self.batch_norm(attention_output)
+        # attention_output = self.batch_norm(attention_output) # one graph per batch.
         return attention_output
 
 
@@ -176,8 +177,8 @@ class VAE(nn.Module):
         # assert len(self.in_channels) == len(self.out_channels) == self.num_blocks
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()
-        self.mu_mlp = nn.Linear(self.out_channels[-1], self.latent_dim)
-        self.sigma_mlp = nn.Linear(self.out_channels[-1], self.latent_dim)
+        self.mu_mlp = nn.Linear(self.out_channels[-1], 1)
+        self.sigma_mlp = nn.Linear(self.out_channels[-1], 1)
         self.softplus = nn.Softplus()
 
         for in_dim, out_dim in zip(self.in_channels, self.out_channels):
@@ -196,53 +197,54 @@ class VAE(nn.Module):
                 use_bias=self.use_bias,
             ))
 
-        def reparameterize(self, mu, sigma):
-            """reparameterize function.
+    def reparameterize(self, mu, sigma):
+        """reparameterize function.
 
-            Args:
-                mu (tensor): stands for the mean from mu_mlp.
-                sigma (tensor): stands for the log of sigma^2.
-            """
-            epsilon = torch.randn(mu.size(0), mu.size(1)).type_as(mu)
-            latent = mu + epsilon * torch.exp(sigma/2)
-            return latent
+        Args:
+            mu (tensor): stands for the mean from mu_mlp.
+            sigma (tensor): stands for the log of sigma^2.
+        """
+        epsilon = torch.randn(mu.size(0), mu.size(1)).type_as(mu)
+        latent = mu + epsilon * torch.exp(sigma/2)
+        return latent
 
-        def encode(self, h, adj_matrix, mask_matrix):
-            latent = h
-            for i in range(self.num_blocks):
-                latent = self.encoder[i](latent, adj_matrix, mask_matrix)
-            mu = self.mu_mlp(latent)
-            sigma = self.sigma_mlp(latent)
-            return mu, sigma
+    def encode(self, h, adj_matrix, mask_matrix):
+        latent = h
+        for i in range(self.num_blocks):
+            latent = self.encoder[i](latent, adj_matrix, mask_matrix)
+        mu = self.mu_mlp(latent)
+        sigma = self.sigma_mlp(latent)
+        return mu, sigma
 
-        def decode(self, resample, adj_matrix, mask_matrix):
-            latent = resample
-            for i in range(self.num_blocks):
-                latent = self.decoder[i](latent, adj_matrix, mask_matrix)
-            return latent
+    def decode(self, resample, adj_matrix, mask_matrix):
+        latent = resample
+        for i in range(self.num_blocks):
+            latent = self.decoder[i](latent, adj_matrix, mask_matrix)
+        return latent
 
-        def forward(self, batch):
-            """Forward function of VAE model, which takes the batch item,
-            a dictionary object as input, including graph attributes and 
-            adjacency matrix and mask matrix.
+    def forward(self, batch):
+        """Forward function of VAE model, which takes the batch item,
+        a dictionary object as input, including graph attributes and 
+        adjacency matrix and mask matrix.
 
-            Args:
-                batch (dictionary): includes three attributes:
-                    "graph_attrs": graph vector (B, N, D);
-                    "adj_matrix": adjacency matrix dim (B, N, N);
-                    "mask_matrix": masked matrix (B, N, N);
+        Args:
+            batch (dictionary): includes three attributes:
+                "graph_attrs": graph vector (B, N, D);
+                "adj_matrix": adjacency matrix dim (B, N, N);
+                "mask_matrix": masked matrix (B, N, N);
 
-            Returns:
-                reconstruct (tensor): output from VAE model.
-                mu_estimate (tensor): estimate mean vector.
-                sigma_estimate (tensor): estimiate sigma vector.
-            """
-            h = batch["graph_attrs"]
-            adj_matrix = batch["adj_matrix"]
-            mask_matrix = batch["mask_matrix"]
-            mu_estimate, sigma_estimate = self.encode(
-                h, adj_matrix, mask_matrix 
-            )
-            resample = self.reparameterize(mu_estimate, sigma_estimate)
-            reconstruct = self.decode(resample)
-            return reconstruct, mu_estimate, sigma_estimate
+        Returns:
+            reconstruct (tensor): output from VAE model.
+            mu_estimate (tensor): estimate mean vector.
+            sigma_estimate (tensor): estimiate sigma vector.
+        """
+
+        h = batch["graph_attrs"]
+        adj_matrix = batch["adj_matrix"]
+        mask_matrix = batch["mask_matrix"]
+        mu_estimate, sigma_estimate = self.encode(
+            h, adj_matrix, mask_matrix 
+        )
+        resample = self.reparameterize(mu_estimate.squeeze(), sigma_estimate.squeeze())
+        reconstruct = self.decode(resample, adj_matrix, mask_matrix)
+        return reconstruct, mu_estimate, sigma_estimate
