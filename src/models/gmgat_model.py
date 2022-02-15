@@ -9,10 +9,12 @@ from torch.optim import Adam
 class GMGATModel(pl.LightningModule):
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        num_heads,
-        latent_dim,
+        encoder_in_channels=[],
+        encoder_out_channels=[],
+        decoder_in_channels=[],
+        decoder_out_channels=[],
+        num_heads=16,
+        latent_dim=128,
         dropout=0.1,
         num_blocks=2,
         use_bias=True,
@@ -21,12 +23,14 @@ class GMGATModel(pl.LightningModule):
         **kwargs,
     ):
         """
-        GMGATModel, inheriting the LightningModule, need to implement 
+        GMGATModel, inheriting the LightningModule, need to implement
         the training_step, validation_step, test_step and optimizers.
         
         Args:
-            in_channels (list): list of input dimension for each block.
-            out_channels (list): list of output dimension for each block.
+            encoder_in_channels (list): list of input dimension for encoder each block.
+            encoder_out_channels (list): list of output dimension for encoder each block.
+            decoder_in_channels (list): list of input dimension for decoder each block.
+            decoder_out_channels (list): list of output dimension for decoder each block.
             num_heads (int): number of heads.
             latent_dim (int): dimension of latent embedding (mu, sigma).
             dropout (int): dropout ratio.
@@ -38,8 +42,10 @@ class GMGATModel(pl.LightningModule):
         """
         super().__init__()
         self.GMGAT = VAE(
-            in_channels=in_channels,
-            out_channels=out_channels,
+            encoder_in_channels=encoder_in_channels,
+            encoder_out_channels=encoder_out_channels,
+            decoder_in_channels=decoder_in_channels,
+            decoder_out_channels=decoder_out_channels,
             num_heads=num_heads,
             latent_dim=latent_dim,
             dropout=dropout,
@@ -58,7 +64,7 @@ class GMGATModel(pl.LightningModule):
         attributes = batch["graph_attrs"]
         reconstruct, mu_estimate, sigma_estimate = self.GMGAT(batch)
         
-        # TODO: add loss and logger.
+        # TODO: add accuracy logger.
         reconstruction_loss = self.losses.reconstruction_loss(
             ground_truth=attributes,
             reconstruct=reconstruct,
@@ -68,6 +74,9 @@ class GMGATModel(pl.LightningModule):
             sigma_estimate=sigma_estimate
         )
         loss = reconstruction_loss + KL_loss
+        self.log("train/Reconstruction_loss", reconstruction_loss, on_step=False, on_epoch=True, prog_bar=False)
+        self.log("train/KL_loss", KL_loss, on_step=False, on_epoch=True, prog_bar=False)
+        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         return {"loss": loss}
 
     def test_step(self):

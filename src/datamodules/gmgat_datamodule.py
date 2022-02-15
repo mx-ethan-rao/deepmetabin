@@ -40,11 +40,14 @@ class GMGATDataModule(pl.LightningDataModule):
             graph_dataset_roots=self.graph_dataset_roots,
             graph_attrs_dataset_roots=self.graph_attrs_dataset_roots,
         )
-        self.data_train, self.data_val, self.data_test = random_split(
-            dataset=dataset,
-            lengths=self.train_val_test_split,
-            generator=torch.Generator().manual_seed(42),
-        )
+        # self.data_train, self.data_val, self.data_test = random_split(
+        #     dataset=dataset,
+        #     lengths=self.train_val_test_split,
+        #     generator=torch.Generator().manual_seed(42),
+        # )
+        self.data_train = dataset
+        self.data_test = dataset
+        self.data_val = dataset
 
     def train_dataloader(self):
         return DataLoader(

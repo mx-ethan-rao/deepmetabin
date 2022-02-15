@@ -9,7 +9,7 @@ defaults:
   - override /model: gmgat.yaml
   - override /datamodule: gmgat.yaml
   - override /callbacks: default.yaml
-  - override /logger: null
+  - override /logger: wandb.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters

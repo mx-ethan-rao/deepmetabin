@@ -141,19 +141,23 @@ class GraphTransformerBlock(nn.Module):
 class VAE(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        num_heads,
-        latent_dim,
+        encoder_in_channels=[],
+        encoder_out_channels=[],
+        decoder_in_channels=[],
+        decoder_out_channels=[],
+        num_heads=16,
+        latent_dim=128,
         dropout=0.1,
         num_blocks=2,
         use_bias=True,
     ):
         """ VAE module, main architecture of GMGAT.
-
+        
         Args:
-            in_channels (list): list of input dimension for each block.
-            out_channels (list): list of output dimension for each block.
+            encoder_in_channels (list): list of input dimension for encoder each block.
+            encoder_out_channels (list): list of output dimension for encoder each block.
+            decoder_in_channels (list): list of input dimension of decoder each block.
+            decoder_out_channels (list): list of output dimension of decoder each block.
             num_heads (int): number of heads.
             latent_dim (int): dimension of latent embedding (mu, sigma).
             dropout (int): dropout ratio.
@@ -166,22 +170,25 @@ class VAE(nn.Module):
             batch_norm (nn.BatchNorm1d): normalization.
         """
         super(VAE, self).__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
+        self.encoder_in_channels = encoder_in_channels
+        self.encoder_out_channels = encoder_out_channels
+        self.decoder_in_channels = decoder_in_channels
+        self.decoder_out_channels = decoder_out_channels
         self.num_heads = num_heads
         self.latent_dim = latent_dim
         self.dropout = dropout
         self.num_blocks = num_blocks
         self.use_bias = use_bias
 
-        # assert len(self.in_channels) == len(self.out_channels) == self.num_blocks
+        assert self.encoder_out_channels[-1] == self.latent_dim
+        assert len(self.encoder_in_channels) == len(self.encoder_out_channels) == self.num_blocks
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()
-        self.mu_mlp = nn.Linear(self.out_channels[-1], 1)
-        self.sigma_mlp = nn.Linear(self.out_channels[-1], 1)
+        self.mu_mlp = nn.Linear(self.latent_dim, 1)
+        self.sigma_mlp = nn.Linear(self.latent_dim, 1)
         self.softplus = nn.Softplus()
 
-        for in_dim, out_dim in zip(self.in_channels, self.out_channels):
+        for in_dim, out_dim in zip(self.encoder_in_channels, self.encoder_out_channels):
             self.encoder.append(GraphTransformerBlock(
                 input_dim=in_dim,
                 output_dim=out_dim,
@@ -189,7 +196,7 @@ class VAE(nn.Module):
                 use_bias=self.use_bias,
             ))
 
-        for in_dim, out_dim in zip(self.out_channels[::-1], self.in_channels[::-1]):
+        for in_dim, out_dim in zip(self.decoder_in_channels, self.decoder_out_channels):
             self.decoder.append(GraphTransformerBlock(
                 input_dim=in_dim,
                 output_dim=out_dim,
@@ -245,6 +252,6 @@ class VAE(nn.Module):
         mu_estimate, sigma_estimate = self.encode(
             h, adj_matrix, mask_matrix 
         )
-        resample = self.reparameterize(mu_estimate.squeeze(), sigma_estimate.squeeze())
-        reconstruct = self.decode(resample, adj_matrix, mask_matrix)
+        resample = self.reparameterize(mu_estimate.squeeze(dim=-1), sigma_estimate.squeeze(dim=-1))
+        reconstruct = self.decode(resample.unsqueeze(dim=-1), adj_matrix, mask_matrix)
         return reconstruct, mu_estimate, sigma_estimate

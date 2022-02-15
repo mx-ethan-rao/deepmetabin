@@ -1,13 +1,17 @@
 _target_: src.models.gmgat_model.GMGATModel
 
-in_channels: 
+encoder_in_channels: 
   - 32
   - 64
-  - 128
-out_channels: 
+encoder_out_channels: 
   - 64
   - 128
-  - 128
+decoder_in_channels:
+  - 1
+  - 16
+decoder_out_channels:
+  - 16
+  - 32
 num_heads: 16
 latent_dim: 128
 dropout: 0.1
