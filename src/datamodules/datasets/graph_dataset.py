@@ -1,3 +1,4 @@
+import torch
 import scipy
 import scipy.sparse as sp
 import networkx as nx
@@ -114,7 +115,7 @@ class GraphDataset(Dataset):
         sqrt[np.isinf(sqrt)] = 0 # remove infinte value as zero.
         D = sp.diags(sqrt, format='csr')
         adj_normalized_matrix = D @ adj_matrix @ D
-        adj_normalized_matrix = adj_normalized_matrix.toarray().astype(np.half)
+        adj_normalized_matrix = self.csr2tensor(adj_normalized_matrix) # to sparse tensor.
         return adj_normalized_matrix
 
     @staticmethod
@@ -139,3 +140,47 @@ class GraphDataset(Dataset):
                 else:
                     mask_matrix[i][j] = 0
         return mask_matrix
+
+    @staticmethod
+    def csr2tensor(matrix):
+        """ Transform csr format sparse matrix to torch.tensor.
+        To save space use torch.half to save the values of sparse
+        matrix.
+
+        Args:
+            matrix (csr): input csr matrix.
+
+        Returns:
+            sprase_matrix (tensor): matrix torch sparse format tensor.
+        """
+        coo = matrix.tocoo()
+        values = coo.data
+        indices = np.vstack((coo.row, coo.col))
+
+        i = torch.LongTensor(indices)
+        v = torch.HalfTensor(values)
+        shape = coo.shape
+
+        sparse_matrix = torch.sparse.HalfTensor(i, v, torch.Size(shape))
+        return sparse_matrix
+
+    @staticmethod
+    def to_sparse(x):
+        """Transform dense tensor to sparse tensor.
+        
+        Args:
+            x (tensor): dense tensor.
+
+        Returns:
+            x_sparse (sparse.tensor): sparse tensor.
+        """
+        x_typename = torch.typename(x).split(".")[-1]
+        sparse_tensortype = getattr(torch.sparse, x_typename)
+
+        indices = torch.nonzero(x)
+        if len(indices.shape) == 0:  # if all elements are zeros
+            return sparse_tensortype(*x.shape)
+        indices = indices.t()
+        values = x[tuple(indices[i] for i in range(indices.shape[0]))]
+        x_sparse = sparse_tensortype(indices, values, x.size())
+        return x_sparse
