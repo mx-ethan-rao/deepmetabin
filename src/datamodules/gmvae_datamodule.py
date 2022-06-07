@@ -1,20 +1,20 @@
 import torch
 import pytorch_lightning as pl
-from src.datamodules.datasets.graph_dataset import GMGATSingleGraphDataset
+from src.datamodules.datasets.graph_dataset import GraphDataset
 from torch.utils.data import DataLoader, random_split
 
 
-class GMGATDataModule(pl.LightningDataModule):
+class GMVAEDataModule(pl.LightningDataModule):
     def __init__(
         self,
+        zarr_dataset_path,
         train_val_test_split,
-        zarr_dataset_path: str = "",
-        U_feature_path: str = "",
-        batch_size: int = 1,
-        k: int = 5,
-        sigma: int = 1,
+        batch_size=1,
+        sigma=1,
         num_workers=0,
         pin_memory=False,
+        use_neighbor_feature=False,
+        k=15,
         *args,
         **kwargs,
     ):
@@ -22,36 +22,35 @@ class GMGATDataModule(pl.LightningDataModule):
         metagenomic data.
 
         Args:
-            train_val_test_split (list): train, test, val splitting
-            zarr_dataset_path (string): processed zarr dataset path.
-            U_feature_path (string): pre-extracted ag pe feature path.
-            batch_size (int): batch size of data module.
-            k (int): k parameter, stands for the batch size of data-module.
-            sigma (float): sigma parameter, Gaussian variance when computing
-                neighbors coefficient.
+            graph_dataset_roots (list): list of the graph datasets path.
+            graph_attrs_dataset_roots (list): list of the graph attrs 
+                datasets path (bam file).
         """
         super().__init__()
         self.zarr_dataset_path = zarr_dataset_path
-        self.U_feature_path = U_feature_path
-        self.k = k
-        self.sigma = sigma
         self.train_val_test_split = train_val_test_split
         self.batch_size = batch_size
-        self.k = k
-        self.sigma = sigma
         self.num_workers = num_workers
         self.pin_memory = pin_memory
-    
+        self.k = k
+        self.use_neighbor_feature = use_neighbor_feature
+        self.sigma = sigma
+
     def prepare_data(self):
         pass
 
     def setup(self, stage=None):
-        dataset = GMGATSingleGraphDataset(
+        dataset = GraphDataset(
             zarr_dataset_path=self.zarr_dataset_path,
-            U_feature_path=self.U_feature_path,
             k=self.k,
             sigma=self.sigma,
+            use_neighbor_feature=self.use_neighbor_feature,
         )
+        # self.data_train, self.data_val, self.data_test = random_split(
+        #     dataset=dataset,
+        #     lengths=self.train_val_test_split,
+        #     generator=torch.Generator().manual_seed(42),
+        # )
         self.data_train = dataset
         self.data_test = dataset
         self.data_val = dataset
@@ -66,6 +65,8 @@ class GMGATDataModule(pl.LightningDataModule):
         )
     
     def val_dataloader(self):
+        # Modify here, use whole dataset for validating.
+        # Use whole dataset to validating the performence.
         return DataLoader(
             dataset=self.data_val,
             batch_size=len(self.data_val),

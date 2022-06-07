@@ -1,0 +1,14 @@
+_target_: src.models.gmvae_model.GMVAEModel
+
+lr: 0.0001
+weight_decay: 0.0005
+w_cat: 0.000156
+w_gauss: 0.000156
+w_rec: 1
+rec_type: "mse"
+gaussian_size: 512
+num_classes: 30
+plot_graph_size: 1000
+log_path: "/home/eddie/log"
+processed_zarr_dataset_path: "/home/eddie/cami1-low-long.zarr"
+use_gmm: True

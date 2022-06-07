@@ -1,0 +1,8 @@
+_target_: src.datamodules.gmvae_datamodule.GMVAEDataModule
+
+zarr_dataset_path: "/home/eddie/cami1-low-long.zarr"
+use_neighbor_feature: True
+batch_size: 400
+train_val_test_split: [1, 0, 0]
+num_workers: 0
+pin_memory: False

@@ -1,21 +1,28 @@
 _target_: src.models.gmgat_model.GMGATModel
 
-encoder_in_channels: 
-  - 32
-  - 64
-encoder_out_channels: 
-  - 64
-  - 128
-decoder_in_channels:
-  - 1
-  - 16
-decoder_out_channels:
-  - 16
-  - 32
+ag_encoder_in_channels: [50, 128, 256]
+ag_encoder_out_channels: [128, 256, 512]
+knn_encoder_in_channels: [104, 128, 256]
+knn_encoder_out_channels: [128, 256, 512]
+gaussian_size: 512
+num_clases: 30
+ag_w_cat: 0.000156
+ag_w_gauss: 0.000156
+ag_w_rec: 1
+ag_w_ce: 1
+knn_w_cat: 0.000156
+knn_w_gauss: 0.000156
+knn_w_rec: 1
+knn_w_ce: 0.01
+k: 5
 num_heads: 16
 latent_dim: 128
 dropout: 0.1
-num_blocks: 2
 use_bias: True
 lr: 0.0001
+block_type: "GCN"
 weight_decay: 0.0005
+plot_graph_size: 400
+log_path: "/home/eddie/log"
+processed_zarr_dataset_path: "/home/eddie/cami1-low-long.zarr"
+use_gmm: False

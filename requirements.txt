@@ -34,3 +34,10 @@ scikit-learn    # used in some callbacks
 seaborn         # used in some callbacks
 jupyterlab      # better jupyter notebooks
 pudb            # debugger
+zarr==2.11.3    # zarr format data structure
+igraph==0.9.10  # igraph visualization
+matplotlib      # plot
+numpy==1.22.2   # numpy
+scikit-learn    # sclearn
+tqdm            # progress bar
+netwrokx        # graph
