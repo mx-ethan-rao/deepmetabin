@@ -11,6 +11,7 @@ from src.utils.util import (
     Gaussian,
     softmax,
     get_index_by_id_from_array,
+    get_index_by_id_from_list,
 )
 
 
@@ -23,10 +24,16 @@ class GraphDataset(Dataset):
         sigma (float): Gaussian variance when computing neighbors coefficient.
         use_neighbor_feature (boolean): whether to use the reconstructing 
             neighbors strategy.
+        use_ag_graph_filter (boolean): whether to use the ag graph neighbors to
+            refine the neighbors based on k nearest neighbors.
 
     Each contig is stored into dictionary, with following keys:
         - feature: concated tnf and rpkm feature dim (104, 1);
-
+        - labels: contig ground truth bin id (1, 1);
+        - id: contig id (1, 1);
+        - neighbors (optional): neighbor ids for each contig (k, 1);
+        - weights (optional): neighbor weights after softmax normalization (k, 1);
+        - neighbors_mask (optional): neighbor mask after refinement using ag graph;
     """
     # TODO: add feature per batch as comments.
     def __init__(
@@ -35,6 +42,7 @@ class GraphDataset(Dataset):
         k: int = 5,
         sigma: int =1,
         use_neighbor_feature=True,
+        use_ag_graph_filter=False,
         *args,
         **kwargs,
     ) -> None:
@@ -42,6 +50,7 @@ class GraphDataset(Dataset):
         self.zarr_dataset_path = zarr_dataset_path
         self.k = k
         self.use_neighbor_feature = use_neighbor_feature
+        self.use_ag_graph_filter = use_ag_graph_filter
         self.Gaussian = Gaussian(sigma=sigma)
         self.data = []
 
@@ -51,6 +60,8 @@ class GraphDataset(Dataset):
         data_list = self._load_graph_attrs(zarr_dataset_path)
         if self.use_neighbor_feature:
             data_list = self.create_knn_graph(data_list)
+        if self.use_ag_graph_filter:
+            data_list = self.refine_neighbors(data_list)
         return data_list
 
     def __getitem__(self, index: int):
@@ -120,6 +131,55 @@ class GraphDataset(Dataset):
                             neighbor_feature.append(feature_array[j])
                 neighbor_feature = np.stack(neighbor_feature, axis=0)
                 data_list[i]["neighbors_feature"] = neighbor_feature
+
+        return data_list
+
+    def refine_neighbors(self, data_list):
+        """Use the ag graph neighbors to refine the knn graph, if the neighbors exists
+        inside the ag graph, then update neighbors_mask vector to update the usage.
+        
+        Args:
+            data_list (list): list format dataset.
+
+        Returns:
+            data_list (list): list format dataset.
+        """
+        # TODO: extract the function outside this class.
+        ag_graph = nx.Graph()
+        id_list = []
+        root = zarr.open(self.zarr_dataset_path, mode="r")
+        contig_id_list = root.attrs["contig_id_list"]
+
+        for i in range(len(contig_id_list)):
+            contig_id = np.array(root[i]["id"])
+            contig_id_int = int(contig_id[0])
+            ag_graph.add_node(contig_id_int)
+            id_list.append(contig_id_int)
+
+        for i in range(len(contig_id_list)):
+            ag_graph_edges = root[i]["ag_graph_edges"]
+            contig_id = np.array(root[i]["id"])
+            contig_id_int = int(contig_id[0])
+
+            for edge_pair in ag_graph_edges:
+                neighbor_id = edge_pair[1]
+                if neighbor_id in id_list:
+                    neighbor_index = get_index_by_id_from_list(neighbor_id, id_list)
+                    neighbor_id_int = id_list[neighbor_index]
+                    ag_graph.add_edge(contig_id_int, neighbor_id_int)
+        ag_adj_matrix = nx.adjacency_matrix(ag_graph)
+        ag_adj_square_matrix = ag_adj_matrix.dot(ag_adj_matrix).dot(ag_adj_matrix)
+        for i in trange(len(contig_id_list), desc="Refine neighbor list..."):
+            neighbors_mask = []
+            knn_neighbor_ids = data_list[i]["neighbors"]
+            for j in knn_neighbor_ids:
+                if ag_adj_square_matrix[i][j] > 0:
+                    neighbors_mask.append(1)
+                else:
+                    neighbors_mask.append(0)
+            neighbors_mask = np.array(neighbors_mask)
+            data_list[i]["neighbors_mask"] = neighbors_mask
+            # TODO: reupdate the weights matrix of different neighbors.
 
         return data_list
 
