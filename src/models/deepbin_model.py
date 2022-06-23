@@ -159,6 +159,7 @@ class DeepBinModel(pl.LightningModule):
             processed_zarr_dataset_path=self.processed_zarr_dataset_path,
             plotting_contig_list=plotting_contig_list,
             log_path=self.log_path,
+            graph_type="origin",
             gd_bin_list=gd_bin_list,
             result_bin_list=result_bin_list,
         )
@@ -174,8 +175,12 @@ class DeepBinModel(pl.LightningModule):
 
         # add gmm to the latent vector, wrap a function here.
         if self.use_gmm:
-            self.log_gmm(batch, latent)
-
+            self.log_gmm(
+                batch=batch,
+                latent=bin_tensor,
+                plotting_contig_list=plotting_contig_list,
+            )
+        
         # Visualize latent space.
         result_tsne_figure_path = log_tsne_figure(
             batch=batch,
@@ -201,7 +206,7 @@ class DeepBinModel(pl.LightningModule):
         # remove the cached accuracy here.
         return super().on_epoch_end()
 
-    def log_gmm(self, batch, latent):
+    def log_gmm(self, batch, latent, plotting_contig_list):
         """Use EM algorithm to further train the latent vector and predict the target cluster.
 
         Args:
@@ -211,12 +216,39 @@ class DeepBinModel(pl.LightningModule):
         Returns:
             None
         """
-        gmm_precision, gmm_recall, gmm_ARI, gmm_F1 = refine_gmm(
-            gmm=self.gmm,
+        gmm_gd_bin_list, gmm_result_bin_list, gmm_non_labeled_id_list = refine_gmm(
+                gmm=self.gmm,
+                batch=batch,
+                latent=latent,
+        )
+        _, gmm_result_ag_graph_path = log_ag_graph(
+            plotting_graph_size=self.plot_graph_size,
+            processed_zarr_dataset_path=self.processed_zarr_dataset_path,
+            plotting_contig_list=plotting_contig_list,
+            log_path=self.log_path,
+            graph_type="gmm",
+            gd_bin_list=gmm_gd_bin_list,
+            result_bin_list=gmm_result_bin_list,
+        )
+        _, gmm_result_knn_graph_path = log_knn_graph(
+            plotting_graph_size=self.plot_graph_size,
+            plotting_contig_list=plotting_contig_list,
+            log_path=self.log_path,
+            k=self.k,
             batch=batch,
-            latent=latent,
+            graph_type="gmm",
+            gd_bin_list=gmm_gd_bin_list,
+            result_bin_list=gmm_result_bin_list,
+        )
+        gmm_precision, gmm_recall, gmm_ARI, gmm_F1 = evaluate(
+            gd_bin_list=gmm_gd_bin_list,
+            result_bin_list=gmm_result_bin_list,
+            non_labeled_id_list=gmm_non_labeled_id_list,
+            unclassified=0
         )
         self.log("val/gmm_precision", gmm_precision, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_recall", gmm_recall, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_F1", gmm_F1, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_ARI", gmm_ARI, on_step=False, on_epoch=True, prog_bar=False)
+        wandb.log({"val/result_gmm_ag_subgraph": wandb.Image(gmm_result_ag_graph_path)})
+        wandb.log({"val/result_gmm_knn_subgraph": wandb.Image(gmm_result_knn_graph_path)})

@@ -455,6 +455,7 @@ def log_ag_graph(
     processed_zarr_dataset_path,
     plotting_contig_list,
     log_path,
+    graph_type,
     gd_bin_list,
     result_bin_list,
 ):
@@ -464,8 +465,9 @@ def log_ag_graph(
         plotting_graph_size (int): plotting graph size.
         processed_zarr_dataset_path (string): path of processed zarr dataset.
         plotting_contig_list (list): list of sampled contig ids.
-        graph (igraph.Graph): igraph.Graph object created from plotting contig list.
         log_path (string): predefined path to store the visualized image.
+        graph_type (string): graph type input support original output or the
+            gmm output, "origin" or "gmm".
         gd_bin_list (2D list): ground truth bin list, 1d stands for the cluster, 
             2d stands for the node list.
         result_bin_list (2D list): result bin list, 1d stands for the cluster, 
@@ -488,14 +490,14 @@ def log_ag_graph(
     gd_ag_graph_path = plot_graph(
         graph=gd_ag_graph,
         log_path=log_path,
-        graph_type="gd-ag",
+        graph_type="gd-()-ag".format(graph_type),
         plotting_contig_list=plotting_contig_list,
         bin_list=gd_bin_list,
     )
     result_ag_graph_path = plot_graph(
         graph=result_ag_graph,
         log_path=log_path,
-        graph_type="result-ag",
+        graph_type="result-{}-ag".format(graph_type),
         plotting_contig_list=plotting_contig_list,
         bin_list=result_bin_list,
     )
@@ -508,6 +510,7 @@ def log_knn_graph(
     k,
     batch,
     log_path,
+    graph_type,
     gd_bin_list,
     result_bin_list,
 ):
@@ -519,6 +522,8 @@ def log_knn_graph(
         k (int): k neighbors used in knn graph.
         batch (dictionary):  batch from datamodule to get the neighbors id.
         log_path (string): predefined path to store the visualized image.
+        graph_type (string): graph type input support original output or the
+            gmm output, "origin" or "gmm".
         gd_bin_list (2D list): ground truth bin list, 1d stands for the cluster, 
             2d stands for the node list.
         result_bin_list (2D list): result bin list, 1d stands for the cluster, 
@@ -543,14 +548,14 @@ def log_knn_graph(
     gd_knn_graph_path = plot_graph(
         graph=gd_knn_graph,
         log_path=log_path,
-        graph_type="gd-knn",
+        graph_type="gd-{}-knn".format(graph_type),
         plotting_contig_list=plotting_contig_list,
         bin_list=gd_bin_list,
     )
     result_knn_graph_path = plot_graph(
         graph=result_knn_graph,
         log_path=log_path,
-        graph_type="result-knn",
+        graph_type="result-{}-knn".format(graph_type),
         plotting_contig_list=plotting_contig_list,
         bin_list=result_bin_list,
     )
@@ -624,18 +629,15 @@ def log_similarity_matrix(batch, latent, log_path):
 
 
 def refine_gmm(gmm, batch, latent):
-    """Use EM algorithm to further train the latent vector and predict the target cluster.
+    """Use EM algorithm to further update the latent vector from the model output, return the
+    updated latent features.
 
     Args:
-        gmm (sklearn.gmm): GMM module from sklearn.
-        batch (dictionary): batch from datamodule to get the node labels.
-        latent (tensor): z tensor output from the encoder.
+        gmm (sklearn.gmm): GMM model from sklearn.
+        latent (tensor): z output from the tensor.
 
     Returns:
-        gmm_precision (float): GMM precision metric.
-        gmm_recall (float): GMM recall metric.
-        gmm_ARI (float): GMM ARI metric.
-        gmm_F1 (float): GMM F1 metric.
+        predicts (tensor): updated          
     """
     latent = latent.detach().numpy()
     predicts = gmm.fit_predict(latent)
@@ -643,10 +645,5 @@ def refine_gmm(gmm, batch, latent):
         batch=batch,
         bin_tensor=predicts,
     )
-    gmm_precision, gmm_recall, gmm_ARI, gmm_F1 = evaluate(
-        gd_bin_list=gmm_gd_bin_list,
-        result_bin_list=gmm_result_bin_list,
-        non_labeled_id_list=non_labeled_id_list,
-        unclassified=0,
-    )
-    return gmm_precision, gmm_recall, gmm_ARI, gmm_F1
+    return gmm_gd_bin_list, gmm_result_bin_list, non_labeled_id_list
+ 
