@@ -39,8 +39,9 @@ class LossFunctions:
                                 of all the sample losses or an array with the losses per sample
       """
       loss = (real - predicted).pow(2)
-      loss[:, :-1] = loss[:, :-1] * 0.15 / 103
-      loss[:, -1] = loss[:, -1] * 0.85
+      loss[:, :103] = loss[:, :103] * 0.15 / 103
+      loss[:, 104] = loss[:, 104] * 0.85
+      loss[:, 104:-1] = loss[:, 104:-1] * 0.01
       return loss.sum(-1).mean()
 
 

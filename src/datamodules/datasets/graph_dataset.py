@@ -43,6 +43,7 @@ class GraphDataset(Dataset):
         sigma: int =1,
         use_neighbor_feature=True,
         use_ag_graph_filter=False,
+        U_feature_path="/home/eddie/U.pt",
         *args,
         **kwargs,
     ) -> None:
@@ -51,6 +52,7 @@ class GraphDataset(Dataset):
         self.k = k
         self.use_neighbor_feature = use_neighbor_feature
         self.use_ag_graph_filter = use_ag_graph_filter
+        self.U_feature_path = U_feature_path
         self.Gaussian = Gaussian(sigma=sigma)
         self.data = []
 
@@ -74,19 +76,28 @@ class GraphDataset(Dataset):
         root = zarr.open(zarr_dataset_path, mode="r")
         contig_id_list = root.attrs["contig_id_list"]
         data_list = []
-        for i in tqdm(contig_id_list):
+        U = self.load_U_matrix()
+        for i, c_id in enumerate(tqdm(contig_id_list)):
             item = {}
-            tnf = np.array(root[i]["tnf_feat"])
+            tnf = np.array(root[c_id]["tnf_feat"])
             normalized_tnf = self.zscore(tnf, axis=0)
-            rpkm = np.array(root[i]["rpkm_feat"])
-            feature = np.concatenate((normalized_tnf, rpkm), axis=0)
-            labels = np.array(root[i]["labels"])
-            contig_id = np.array(root[i]["id"])
+            rpkm = np.array(root[c_id]["rpkm_feat"])
+            u = U[i]
+            normalized_u = self.zscore(u, axis=0)
+            feature = np.concatenate((normalized_tnf, rpkm, normalized_u), axis=0)
+            print("test for the feature shape: {}".format(feature.shape))
+            labels = np.array(root[c_id]["labels"])
+            contig_id = np.array(root[c_id]["id"])
             item["feature"] = feature
             item["labels"] = labels
             item["id"] = contig_id
             data_list.append(item)
         return data_list
+    
+    def load_U_matrix(self):
+        U = torch.load(self.U_feature_path)
+        U = U.detach().numpy()
+        return U
 
     def create_knn_graph(self, data_list):
         """Updates the k nearest neighbors for each contig in dictionary. 

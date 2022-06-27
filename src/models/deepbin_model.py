@@ -106,7 +106,7 @@ class DeepBinModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         attributes = batch["feature"]
         neighbor_attributes = batch["neighbors_feature"].squeeze()
-        neighbor_mask = batch["neighbors_mask"].squeeze()
+        #neighbor_mask = batch["neighbors_mask"].squeeze()
         weights = batch["weights"].squeeze()
         out_net = self.network(attributes)
         loss_dict = self.unlabeled_loss(attributes, out_net)
@@ -124,10 +124,10 @@ class DeepBinModel(pl.LightningModule):
         for i in range(self.k):
             nei_feat = neighbor_attributes[:, i]
             nei_weight = weights[:, i]
-            nei_mask = neighbor_mask[:, i]
+            #nei_mask = neighbor_mask[:, i]
             rec_nei = self.network(nei_feat)["x_rec"]
             rec_loss = self.losses.reconstruction_loss(attributes, rec_nei)
-            loss_rec_neigh += rec_loss * nei_mask * nei_weight
+            loss_rec_neigh += rec_loss * nei_weight
         loss_rec_neigh /= self.k
         self.log("train/rec_neigh_loss", loss_rec_neigh, on_step=False, on_epoch=True, prog_bar=False)
         return {"loss": loss, "loss_rec_neighor": loss_rec_neigh}
@@ -168,6 +168,7 @@ class DeepBinModel(pl.LightningModule):
             plotting_contig_list=plotting_contig_list,
             log_path=self.log_path,
             k=self.k,
+            graph_type="origin",
             batch=batch,
             gd_bin_list=gd_bin_list,
             result_bin_list=result_bin_list,
@@ -177,7 +178,7 @@ class DeepBinModel(pl.LightningModule):
         if self.use_gmm:
             self.log_gmm(
                 batch=batch,
-                latent=bin_tensor,
+                latent=latent,
                 plotting_contig_list=plotting_contig_list,
             )
         
