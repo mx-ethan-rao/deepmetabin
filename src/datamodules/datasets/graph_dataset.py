@@ -44,6 +44,7 @@ class GraphDataset(Dataset):
         use_neighbor_feature=True,
         use_ag_graph_filter=False,
         U_feature_path="/home/eddie/U.pt",
+        ag_pca_feature_path="/home/gaoweicong/cami1-low-ag-feat.npy",
         *args,
         **kwargs,
     ) -> None:
@@ -53,6 +54,7 @@ class GraphDataset(Dataset):
         self.use_neighbor_feature = use_neighbor_feature
         self.use_ag_graph_filter = use_ag_graph_filter
         self.U_feature_path = U_feature_path
+        self.ag_pca_feature_path = ag_pca_feature_path
         self.Gaussian = Gaussian(sigma=sigma)
         self.data = []
 
@@ -76,13 +78,13 @@ class GraphDataset(Dataset):
         root = zarr.open(zarr_dataset_path, mode="r")
         contig_id_list = root.attrs["contig_id_list"]
         data_list = []
-        U = self.load_U_matrix()
+        ag_pca_feature = self.load_ag_pca_feat().astype(np.single)
         for i, c_id in enumerate(tqdm(contig_id_list)):
             item = {}
             tnf = np.array(root[c_id]["tnf_feat"])
             normalized_tnf = self.zscore(tnf, axis=0)
             rpkm = np.array(root[c_id]["rpkm_feat"])
-            u = U[i]
+            u = ag_pca_feature[i]
             normalized_u = self.zscore(u, axis=0)
             feature = np.concatenate((normalized_tnf, rpkm, normalized_u), axis=0)
             print("test for the feature shape: {}".format(feature.shape))
@@ -98,6 +100,10 @@ class GraphDataset(Dataset):
         U = torch.load(self.U_feature_path)
         U = U.detach().numpy()
         return U
+    
+    def load_ag_pca_feat(self):
+        ag_pca_feature = np.load(self.ag_pca_feature_path)
+        return ag_pca_feature
 
     def create_knn_graph(self, data_list):
         """Updates the k nearest neighbors for each contig in dictionary. 
@@ -161,15 +167,15 @@ class GraphDataset(Dataset):
         root = zarr.open(self.zarr_dataset_path, mode="r")
         contig_id_list = root.attrs["contig_id_list"]
 
-        for i in range(len(contig_id_list)):
-            contig_id = np.array(root[i]["id"])
+        for i, c_id in enumerate(tqdm(contig_id_list)):
+            contig_id = np.array(root[c_id]["id"])
             contig_id_int = int(contig_id[0])
             ag_graph.add_node(contig_id_int)
             id_list.append(contig_id_int)
 
-        for i in range(len(contig_id_list)):
-            ag_graph_edges = root[i]["ag_graph_edges"]
-            contig_id = np.array(root[i]["id"])
+        for i, c_id in enumerate(tqdm(contig_id_list)):
+            ag_graph_edges = root[c_id]["ag_graph_edges"]
+            contig_id = np.array(root[c_id]["id"])
             contig_id_int = int(contig_id[0])
 
             for edge_pair in ag_graph_edges:
@@ -178,7 +184,13 @@ class GraphDataset(Dataset):
                     neighbor_index = get_index_by_id_from_list(neighbor_id, id_list)
                     neighbor_id_int = id_list[neighbor_index]
                     ag_graph.add_edge(contig_id_int, neighbor_id_int)
-        ag_adj_matrix = nx.adjacency_matrix(ag_graph)
+        ag_adj_matrix = nx.adjacency_matrix(ag_graph).toarray()
+        ag_adj_matrix_path = "/home/gaoweicong/cami1-low-ag-graph.npy"
+        np.save(ag_adj_matrix_path, ag_adj_matrix, allow_pickle=True)
+        print(type(ag_adj_matrix))
+        print(ag_adj_matrix.shape)
+        print("successfully saved.")
+        """
         ag_adj_square_matrix = ag_adj_matrix.dot(ag_adj_matrix).dot(ag_adj_matrix)
         for i in trange(len(contig_id_list), desc="Refine neighbor list..."):
             neighbors_mask = []
@@ -191,7 +203,7 @@ class GraphDataset(Dataset):
             neighbors_mask = np.array(neighbors_mask)
             data_list[i]["neighbors_mask"] = neighbors_mask
             # TODO: reupdate the weights matrix of different neighbors.
-
+        """
         return data_list
 
     @staticmethod

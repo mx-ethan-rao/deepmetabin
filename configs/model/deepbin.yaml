@@ -4,7 +4,7 @@ weight_decay: 0.0005
 w_cat: 0.000156
 w_gauss: 0.000156
 w_rec: 1
-input_size: 154
+input_size: 114
 rec_type: "mse"
 gaussian_size: 512
 num_classes: 30
