@@ -160,7 +160,7 @@ class GraphDataset(Dataset):
                                 neighbor_feature.append(origin_feature_array[j])
                     neighbor_feature = np.stack(neighbor_feature, axis=0)
                     if feature_type == "origin":
-                        data_list[i]["origin_netighbors_feature"] = neighbor_feature
+                        data_list[i]["origin_neighbors_feature"] = neighbor_feature
                     elif feature_type == "ag":
                         data_list[i]["ag_neighbors_feature"] = neighbor_feature
                     else:

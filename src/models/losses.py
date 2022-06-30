@@ -40,8 +40,7 @@ class LossFunctions:
       """
       loss = (real - predicted).pow(2)
       loss[:, :103] = loss[:, :103] * 0.15 / 103
-      loss[:, 104] = loss[:, 104] * 0.85
-      loss[:, 104:-1] = loss[:, 104:-1] * 0.0005
+      loss[:, -1] = loss[:, -1] * 0.85
       return loss.sum(-1).mean()
 
 

@@ -104,10 +104,12 @@ class DeepBinModel(pl.LightningModule):
         pass
         
     def training_step(self, batch, batch_idx):
-        attributes = batch["feature"]
-        neighbor_attributes = batch["neighbors_feature"].squeeze()
+        attributes = batch["origin_feature"]
+        origin_neighbor_attributes = batch["origin_neighbors_feature"].squeeze()
+        ag_neighbor_attributes = batch["ag_neighbors_feature"].squeeze()
         #neighbor_mask = batch["neighbors_mask"].squeeze()
-        weights = batch["weights"].squeeze()
+        origin_weights = batch["origin_weights"].squeeze()
+        ag_weights = batch["ag_weights"].squeeze()
         out_net = self.network(attributes)
         loss_dict = self.unlabeled_loss(attributes, out_net)
 
@@ -119,16 +121,26 @@ class DeepBinModel(pl.LightningModule):
         self.log("train/reconstruction_loss", reconstruction_loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("train/gaussian_loss", gaussian_loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("train/categorical_loss", categorical_loss, on_step=False, on_epoch=True, prog_bar=False)
-
-        loss_rec_neigh = 0
+        
+        loss_rec_origin_neigh = 0
+        loss_rec_ag_neigh = 0
         for i in range(self.k):
-            nei_feat = neighbor_attributes[:, i]
-            nei_weight = weights[:, i]
-            #nei_mask = neighbor_mask[:, i]
-            rec_nei = self.network(nei_feat)["x_rec"]
-            rec_loss = self.losses.reconstruction_loss(attributes, rec_nei)
-            loss_rec_neigh += rec_loss * nei_weight
-        loss_rec_neigh /= self.k
+            origin_nei_feat = origin_neighbor_attributes[:, i]
+            origin_nei_weight = origin_weights[:, i]
+            ag_nei_feat = ag_neighbor_attributes[:, i]
+            ag_nei_weight = ag_weights[:, i]
+            
+            # origin feature based neighbor reconstruction.
+            origin_rec_nei = self.network(origin_nei_feat)["x_rec"]
+            origin_rec_loss = self.losses.reconstruction_loss(attributes, origin_rec_nei)
+            loss_rec_origin_neigh += origin_rec_loss * origin_nei_weight
+            
+            # ag feature based neighbor reconstruction.
+            ag_rec_nei = self.network(ag_nei_feat)["x_rec"]
+            ag_rec_loss = self.losses.reconstruction_loss(attributes, ag_rec_nei)
+            loss_rec_ag_neigh += ag_rec_loss * ag_nei_weight
+
+        loss_rec_neigh = (0.8*loss_rec_origin_neigh + 0.2*loss_rec_ag_neigh) / self.k
         self.log("train/rec_neigh_loss", loss_rec_neigh, on_step=False, on_epoch=True, prog_bar=False)
         return {"loss": loss, "loss_rec_neighor": loss_rec_neigh}
     
@@ -136,7 +148,7 @@ class DeepBinModel(pl.LightningModule):
         pass
     
     def validation_step(self, batch, batch_idx):
-        attributes = batch["feature"]
+        attributes = batch["origin_feature"]
         out_net = self.network(attributes)
         prob_cat = out_net["prob_cat"]
         latent = out_net["gaussian"]

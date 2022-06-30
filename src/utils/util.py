@@ -405,7 +405,7 @@ def create_knn_graph(plotting_graph_size, plotting_contig_list, k, batch):
     knn_graph.add_vertices(plotting_graph_size)
     edge_list = []
     id_tensor = torch.squeeze(batch["id"])
-    neighbor_tensor = torch.squeeze(batch["neighbors"])
+    neighbor_tensor = torch.squeeze(batch["origin_neighbors"])
     node_num = id_tensor.shape[0]
     for i in trange(node_num, desc="Creating KNN Subgraph for Visualization"):
         id = int(id_tensor[i])
