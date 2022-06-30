@@ -86,11 +86,12 @@ class GraphDataset(Dataset):
             rpkm = np.array(root[c_id]["rpkm_feat"])
             u = ag_pca_feature[i]
             normalized_u = self.zscore(u, axis=0)
-            feature = np.concatenate((normalized_tnf, rpkm, normalized_u), axis=0)
+            feature = np.concatenate((normalized_tnf, rpkm), axis=0)
             print("test for the feature shape: {}".format(feature.shape))
             labels = np.array(root[c_id]["labels"])
             contig_id = np.array(root[c_id]["id"])
-            item["feature"] = feature
+            item["origin_feature"] = feature
+            item["ag_feature"] = normalized_u
             item["labels"] = labels
             item["id"] = contig_id
             data_list.append(item)
@@ -118,38 +119,42 @@ class GraphDataset(Dataset):
             data_list (list): list format dataset.
         """
         id_list = []
-        feature_list = []
+        origin_feature_list = []
+        ag_feature_list = []
         for i in range(len(data_list)):
-            feature_list.append(data_list[i]["feature"])
+            origin_feature_list.append(data_list[i]["origin_feature"])
+            ag_feature_list.append(data_list[i]["ag_feature"])
             id_list.append(data_list[i]["id"])
         
-        feature_array = np.array(feature_list)
+        origin_feature_array = np.array(origin_feature_list)
+        ag_feature_array = np.array(ag_feature_list)
         id_array = np.array(id_list)
-        # TODO: remove feature_array.shape[0] by using N.
-        for i in trange(feature_array.shape[0], desc="Creating KNN graph......."):
-            tar_feature = np.expand_dims(feature_array[i], axis=0)
-            dist_array = np.power((feature_array - tar_feature), 2)
-            dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
-            pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
-            sorted_pairs = pairs[pairs[:, 0].argsort()]
-            top_k_pairs = sorted_pairs[1: self.k+1]
-            k_nearest_dis_array = self.Gaussian.cal_coefficient(top_k_pairs[:, 0])
-            normalized_k_dis_array = softmax(k_nearest_dis_array)
-            neighbors_array = top_k_pairs[:, 1]
-            data_list[i]["neighbors"] = neighbors_array
-            data_list[i]["weights"] = normalized_k_dis_array
-            if self.use_neighbor_feature:
-                neighbor_feature = []
-                for index in range(self.k):
-                    neighbor_id = int(neighbors_array[index])
-                    # search the feature by the id array tensor.
-                    for j in range(feature_array.shape[0]):
-                        if int(id_array[j]) == neighbor_id:
-                            neighbor_feature.append(feature_array[j])
-                neighbor_feature = np.stack(neighbor_feature, axis=0)
-                data_list[i]["neighbors_feature"] = neighbor_feature
+        # extract basic function outside.
+        def cal_neighbors(feature_array, id_array, data_list, feature_type="origin"):
+            for i in trange(feature_array.shape[0], desc="Creating KNN graph......."):
+                tar_feature = np.expand_dims(feature_array[i], axis=0)
+                dist_array = np.power((feature_array - tar_feature), 2)
+                dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
+                pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
+                sorted_pairs = pairs[pairs[:, 0].argsort()]
+                top_k_pairs = sorted_pairs[1: self.k+1]
+                k_nearest_dis_array = self.Gaussian.cal_coefficient(top_k_pairs[:, 0])
+                normalized_k_dis_array = softmax(k_nearest_dis_array)
+                neighbors_array = top_k_pairs[:, 1]
+                data_list[i]["neighbors"] = neighbors_array
+                data_list[i]["weights"] = normalized_k_dis_array
+                if self.use_neighbor_feature:
+                    neighbor_feature = []
+                    for index in range(self.k):
+                        neighbor_id = int(neighbors_array[index])
+                        # search the feature by the id array tensor.
+                        for j in range(feature_array.shape[0]):
+                            if int(id_array[j]) == neighbor_id:
+                                neighbor_feature.append(feature_array[j])
+                    neighbor_feature = np.stack(neighbor_feature, axis=0)
+                    data_list[i]["neighbors_feature"] = neighbor_feature
 
-        return data_list
+            return data_list
 
     def refine_neighbors(self, data_list):
         """Use the ag graph neighbors to refine the knn graph, if the neighbors exists
