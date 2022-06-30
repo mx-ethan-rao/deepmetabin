@@ -44,7 +44,7 @@ class GraphDataset(Dataset):
         use_neighbor_feature=True,
         use_ag_graph_filter=False,
         U_feature_path="/home/eddie/U.pt",
-        ag_pca_feature_path="/home/gaoweicong/cami1-low-ag-feat.npy",
+        ag_pca_feature_path="/home/eddie/cami1-low-ag-lap-feat.npy",
         *args,
         **kwargs,
     ) -> None:
@@ -87,7 +87,6 @@ class GraphDataset(Dataset):
             u = ag_pca_feature[i]
             normalized_u = self.zscore(u, axis=0)
             feature = np.concatenate((normalized_tnf, rpkm), axis=0)
-            print("test for the feature shape: {}".format(feature.shape))
             labels = np.array(root[c_id]["labels"])
             contig_id = np.array(root[c_id]["id"])
             item["origin_feature"] = feature
@@ -129,9 +128,10 @@ class GraphDataset(Dataset):
         origin_feature_array = np.array(origin_feature_list)
         ag_feature_array = np.array(ag_feature_list)
         id_array = np.array(id_list)
+        
         # extract basic function outside.
-        def cal_neighbors(feature_array, id_array, data_list, feature_type="origin"):
-            for i in trange(feature_array.shape[0], desc="Creating KNN graph......."):
+        def cal_neighbors(origin_feature_array, feature_array, id_array, data_list, feature_type=""):
+            for i in trange(feature_array.shape[0], desc="Creating {} KNN graph.......".format(feature_type)):
                 tar_feature = np.expand_dims(feature_array[i], axis=0)
                 dist_array = np.power((feature_array - tar_feature), 2)
                 dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
@@ -141,8 +141,15 @@ class GraphDataset(Dataset):
                 k_nearest_dis_array = self.Gaussian.cal_coefficient(top_k_pairs[:, 0])
                 normalized_k_dis_array = softmax(k_nearest_dis_array)
                 neighbors_array = top_k_pairs[:, 1]
-                data_list[i]["neighbors"] = neighbors_array
-                data_list[i]["weights"] = normalized_k_dis_array
+                if feature_type == "origin":
+                    data_list[i]["origin_neighbors"] = neighbors_array
+                    data_list[i]["origin_weights"] = normalized_k_dis_array
+                elif feature_type == "ag":
+                    data_list[i]["ag_neighbors"] = neighbors_array
+                    data_list[i]["ag_weights"] = normalized_k_dis_array
+                else:
+                    raise ValueError("Only support origin feature or ag graph feature currently.")
+
                 if self.use_neighbor_feature:
                     neighbor_feature = []
                     for index in range(self.k):
@@ -150,11 +157,31 @@ class GraphDataset(Dataset):
                         # search the feature by the id array tensor.
                         for j in range(feature_array.shape[0]):
                             if int(id_array[j]) == neighbor_id:
-                                neighbor_feature.append(feature_array[j])
+                                neighbor_feature.append(origin_feature_array[j])
                     neighbor_feature = np.stack(neighbor_feature, axis=0)
-                    data_list[i]["neighbors_feature"] = neighbor_feature
-
+                    if feature_type == "origin":
+                        data_list[i]["origin_netighbors_feature"] = neighbor_feature
+                    elif feature_type == "ag":
+                        data_list[i]["ag_neighbors_feature"] = neighbor_feature
+                    else:
+                        raise ValueError("Only support origin feature or ag graph feature currently.")
             return data_list
+        data_list = cal_neighbors(
+            origin_feature_array=origin_feature_array,
+            feature_array=origin_feature_array,
+            id_array=id_array,
+            data_list=data_list,
+            feature_type="origin",
+        )
+        data_list = cal_neighbors(
+            origin_feature_array=origin_feature_array,
+            feature_array=ag_feature_array,
+            id_array=id_array,
+            data_list=data_list,
+            feature_type="ag",
+        )
+
+        return data_list
 
     def refine_neighbors(self, data_list):
         """Use the ag graph neighbors to refine the knn graph, if the neighbors exists
