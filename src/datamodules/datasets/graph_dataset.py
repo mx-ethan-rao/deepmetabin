@@ -62,6 +62,7 @@ class GraphDataset(Dataset):
 
     def load_dataset(self, zarr_dataset_path):
         data_list = self._load_graph_attrs(zarr_dataset_path)
+        self.extract_non_dead_ends_feature()
         if self.use_neighbor_feature:
             data_list = self.create_knn_graph(data_list)
         if self.use_ag_graph_filter:
@@ -237,6 +238,55 @@ class GraphDataset(Dataset):
             # TODO: reupdate the weights matrix of different neighbors.
         """
         return data_list
+
+    def extract_non_dead_ends_feature(self):
+        ag_graph = nx.Graph()
+        id_list = []
+        root = zarr.open(self.zarr_dataset_path, mode="r")
+        contig_id_list = root.attrs["contig_id_list"]
+
+        for i, c_id in enumerate(tqdm(contig_id_list)):
+            contig_id = np.array(root[c_id]["id"])
+            contig_id_int = int(contig_id[0])
+            ag_graph.add_node(contig_id_int)
+            id_list.append(contig_id_int)
+
+        for i, c_id in enumerate(tqdm(contig_id_list)):
+            ag_graph_edges = root[c_id]["ag_graph_edges"]
+            contig_id = np.array(root[c_id]["id"])
+            contig_id_int = int(contig_id[0])
+
+            for edge_pair in ag_graph_edges:
+                neighbor_id = edge_pair[1]
+                if neighbor_id in id_list:
+                    neighbor_index = get_index_by_id_from_list(neighbor_id, id_list)
+                    neighbor_id_int = id_list[neighbor_index]
+                    ag_graph.add_edge(contig_id_int, neighbor_id_int)
+        
+        # transform the adjacency matrix to ndarray version.
+        ag_adj_matrix = nx.adjacency_matrix(ag_graph).toarray()
+        
+        dead_ends_num = 0
+        mask_vector = [] # store the mask vector for the graph fusion.
+        non_dead_ends_ag_adj_matrix = []
+        non_dead_ends_ag_adj_matrix_path = "/home/comp/cswcgao/cami1-low-ag-non-dead-ends-graph.npy"
+        mask_vector_path = "/home/comp/cswcgao/cami1-low-mask-vector.npy"
+        neighbors_vector = np.sum(ag_adj_matrix, axis=0)
+        for i, c_id in enumerate(tqdm(contig_id_list)):
+            mask = 1
+            if neighbors_vector[i] == 0:
+                dead_ends_num += 1
+                mask = 0
+            mask_vector.append(mask)
+            non_dead_ends_ag_adj_matrix.append(ag_adj_matrix[i])
+        
+        # save the npy file here.
+        non_dead_ends_ag_adj_matrix = np.array(non_dead_ends_ag_adj_matrix)
+        mask_vector = np.array(mask_vector)
+        np.save(non_dead_ends_ag_adj_matrix_path, non_dead_ends_ag_adj_matrix, allow_pickle=True)
+        np.save(mask_vector_path, mask_vector, allow_pickle=True)
+        print("test for the shape of non dead ends ag adj matrix shape: {}".format(non_dead_ends_ag_adj_matrix.shape))
+        print("Successfully saved.")
 
     @staticmethod
     def zscore(array, axis=None):
