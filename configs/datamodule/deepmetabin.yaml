@@ -1,0 +1,12 @@
+_target_: src.datamodules.deepmetabin_datamodule.DeepMetaBinDataModule
+
+zarr_dataset_path: "/home/eddie/cami1-low-large.zarr"
+ag_feature_path: "/home/eddie/cami1-low/ag-feat.npy"
+id_mask_path: "/home/eddie/cami1-low/ag-mask.npy"
+use_neighbor_feature: True
+k: 5
+sigma: 1
+batch_size: 400
+train_val_test_split: [1, 0, 0]
+num_workers: 0
+pin_memory: False

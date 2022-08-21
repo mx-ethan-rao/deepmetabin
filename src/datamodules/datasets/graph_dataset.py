@@ -11,7 +11,6 @@ from src.utils.util import (
     Gaussian,
     softmax,
     get_index_by_id_from_array,
-    get_index_by_id_from_list,
 )
 
 
@@ -24,16 +23,10 @@ class GraphDataset(Dataset):
         sigma (float): Gaussian variance when computing neighbors coefficient.
         use_neighbor_feature (boolean): whether to use the reconstructing 
             neighbors strategy.
-        use_ag_graph_filter (boolean): whether to use the ag graph neighbors to
-            refine the neighbors based on k nearest neighbors.
 
     Each contig is stored into dictionary, with following keys:
         - feature: concated tnf and rpkm feature dim (104, 1);
-        - labels: contig ground truth bin id (1, 1);
-        - id: contig id (1, 1);
-        - neighbors (optional): neighbor ids for each contig (k, 1);
-        - weights (optional): neighbor weights after softmax normalization (k, 1);
-        - neighbors_mask (optional): neighbor mask after refinement using ag graph;
+
     """
     # TODO: add feature per batch as comments.
     def __init__(
@@ -42,9 +35,6 @@ class GraphDataset(Dataset):
         k: int = 5,
         sigma: int =1,
         use_neighbor_feature=True,
-        use_ag_graph_filter=False,
-        U_feature_path="/home/eddie/U.pt",
-        ag_pca_feature_path="/home/eddie/cami1-low-ag-lap-feat.npy",
         *args,
         **kwargs,
     ) -> None:
@@ -52,9 +42,6 @@ class GraphDataset(Dataset):
         self.zarr_dataset_path = zarr_dataset_path
         self.k = k
         self.use_neighbor_feature = use_neighbor_feature
-        self.use_ag_graph_filter = use_ag_graph_filter
-        self.U_feature_path = U_feature_path
-        self.ag_pca_feature_path = ag_pca_feature_path
         self.Gaussian = Gaussian(sigma=sigma)
         self.data = []
 
@@ -62,11 +49,8 @@ class GraphDataset(Dataset):
 
     def load_dataset(self, zarr_dataset_path):
         data_list = self._load_graph_attrs(zarr_dataset_path)
-        self.extract_non_dead_ends_feature()
         if self.use_neighbor_feature:
             data_list = self.create_knn_graph(data_list)
-        if self.use_ag_graph_filter:
-            data_list = self.refine_neighbors(data_list)
         return data_list
 
     def __getitem__(self, index: int):
@@ -79,35 +63,22 @@ class GraphDataset(Dataset):
         root = zarr.open(zarr_dataset_path, mode="r")
         contig_id_list = root.attrs["contig_id_list"]
         data_list = []
-        ag_pca_feature = self.load_ag_pca_feat().astype(np.single)
-        for i, c_id in enumerate(tqdm(contig_id_list)):
+        for i in tqdm(contig_id_list):
             item = {}
-            tnf = np.array(root[c_id]["tnf_feat"])
+            tnf = np.array(root[i]["tnf_feat"])
             normalized_tnf = self.zscore(tnf, axis=0)
-            rpkm = np.array(root[c_id]["rpkm_feat"])
-            u = ag_pca_feature[i]
-            normalized_u = self.zscore(u, axis=0)
+            rpkm = np.array(root[i]["rpkm_feat"])
             feature = np.concatenate((normalized_tnf, rpkm), axis=0)
-            labels = np.array(root[c_id]["labels"])
-            contig_id = np.array(root[c_id]["id"])
-            item["origin_feature"] = feature
-            item["ag_feature"] = normalized_u
+            labels = np.array(root[i]["labels"])
+            contig_id = np.array(root[i]["id"])
+            item["feature"] = feature
             item["labels"] = labels
             item["id"] = contig_id
             data_list.append(item)
         return data_list
-    
-    def load_U_matrix(self):
-        U = torch.load(self.U_feature_path)
-        U = U.detach().numpy()
-        return U
-    
-    def load_ag_pca_feat(self):
-        ag_pca_feature = np.load(self.ag_pca_feature_path)
-        return ag_pca_feature
 
     def create_knn_graph(self, data_list):
-        """Updates the k nearest neighbors for each contig in dictionary. 
+        """Updates the k nearest neighbors for each contig in the dictionary. 
         
         Alerts: knn graph is created by id vector, stores the neightbors 
         and weights for each neighbor.
@@ -119,174 +90,38 @@ class GraphDataset(Dataset):
             data_list (list): list format dataset.
         """
         id_list = []
-        origin_feature_list = []
-        ag_feature_list = []
+        feature_list = []
         for i in range(len(data_list)):
-            origin_feature_list.append(data_list[i]["origin_feature"])
-            ag_feature_list.append(data_list[i]["ag_feature"])
+            feature_list.append(data_list[i]["feature"])
             id_list.append(data_list[i]["id"])
         
-        origin_feature_array = np.array(origin_feature_list)
-        ag_feature_array = np.array(ag_feature_list)
+        feature_array = np.array(feature_list)
         id_array = np.array(id_list)
-        
-        # extract basic function outside.
-        def cal_neighbors(origin_feature_array, feature_array, id_array, data_list, feature_type=""):
-            for i in trange(feature_array.shape[0], desc="Creating {} KNN graph.......".format(feature_type)):
-                tar_feature = np.expand_dims(feature_array[i], axis=0)
-                dist_array = np.power((feature_array - tar_feature), 2)
-                dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
-                pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
-                sorted_pairs = pairs[pairs[:, 0].argsort()]
-                top_k_pairs = sorted_pairs[1: self.k+1]
-                k_nearest_dis_array = self.Gaussian.cal_coefficient(top_k_pairs[:, 0])
-                normalized_k_dis_array = softmax(k_nearest_dis_array)
-                neighbors_array = top_k_pairs[:, 1]
-                if feature_type == "origin":
-                    data_list[i]["origin_neighbors"] = neighbors_array
-                    data_list[i]["origin_weights"] = normalized_k_dis_array
-                elif feature_type == "ag":
-                    data_list[i]["ag_neighbors"] = neighbors_array
-                    data_list[i]["ag_weights"] = normalized_k_dis_array
-                else:
-                    raise ValueError("Only support origin feature or ag graph feature currently.")
-
-                if self.use_neighbor_feature:
-                    neighbor_feature = []
-                    for index in range(self.k):
-                        neighbor_id = int(neighbors_array[index])
-                        # search the feature by the id array tensor.
-                        for j in range(feature_array.shape[0]):
-                            if int(id_array[j]) == neighbor_id:
-                                neighbor_feature.append(origin_feature_array[j])
-                    neighbor_feature = np.stack(neighbor_feature, axis=0)
-                    if feature_type == "origin":
-                        data_list[i]["origin_neighbors_feature"] = neighbor_feature
-                    elif feature_type == "ag":
-                        data_list[i]["ag_neighbors_feature"] = neighbor_feature
-                    else:
-                        raise ValueError("Only support origin feature or ag graph feature currently.")
-            return data_list
-        data_list = cal_neighbors(
-            origin_feature_array=origin_feature_array,
-            feature_array=origin_feature_array,
-            id_array=id_array,
-            data_list=data_list,
-            feature_type="origin",
-        )
-        data_list = cal_neighbors(
-            origin_feature_array=origin_feature_array,
-            feature_array=ag_feature_array,
-            id_array=id_array,
-            data_list=data_list,
-            feature_type="ag",
-        )
+        # TODO: remove feature_array.shape[0] by using N.
+        for i in trange(feature_array.shape[0], desc="Creating KNN graph......."):
+            tar_feature = np.expand_dims(feature_array[i], axis=0)
+            dist_array = np.power((feature_array - tar_feature), 2)
+            dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
+            pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
+            sorted_pairs = pairs[pairs[:, 0].argsort()]
+            top_k_pairs = sorted_pairs[1: self.k+1]
+            k_nearest_dis_array = self.Gaussian.cal_coefficient(top_k_pairs[:, 0])
+            normalized_k_dis_array = softmax(k_nearest_dis_array)
+            neighbors_array = top_k_pairs[:, 1]
+            data_list[i]["neighbors"] = neighbors_array
+            data_list[i]["weights"] = normalized_k_dis_array
+            if self.use_neighbor_feature:
+                neighbor_feature = []
+                for index in range(self.k):
+                    neighbor_id = int(neighbors_array[index])
+                    # search the feature by the id array tensor.
+                    for j in range(feature_array.shape[0]):
+                        if int(id_array[j]) == neighbor_id:
+                            neighbor_feature.append(feature_array[j])
+                neighbor_feature = np.stack(neighbor_feature, axis=0)
+                data_list[i]["neighbors_feature"] = neighbor_feature
 
         return data_list
-
-    def refine_neighbors(self, data_list):
-        """Use the ag graph neighbors to refine the knn graph, if the neighbors exists
-        inside the ag graph, then update neighbors_mask vector to update the usage.
-        
-        Args:
-            data_list (list): list format dataset.
-
-        Returns:
-            data_list (list): list format dataset.
-        """
-        # TODO: extract the function outside this class.
-        ag_graph = nx.Graph()
-        id_list = []
-        root = zarr.open(self.zarr_dataset_path, mode="r")
-        contig_id_list = root.attrs["contig_id_list"]
-
-        for i, c_id in enumerate(tqdm(contig_id_list)):
-            contig_id = np.array(root[c_id]["id"])
-            contig_id_int = int(contig_id[0])
-            ag_graph.add_node(contig_id_int)
-            id_list.append(contig_id_int)
-
-        for i, c_id in enumerate(tqdm(contig_id_list)):
-            ag_graph_edges = root[c_id]["ag_graph_edges"]
-            contig_id = np.array(root[c_id]["id"])
-            contig_id_int = int(contig_id[0])
-
-            for edge_pair in ag_graph_edges:
-                neighbor_id = edge_pair[1]
-                if neighbor_id in id_list:
-                    neighbor_index = get_index_by_id_from_list(neighbor_id, id_list)
-                    neighbor_id_int = id_list[neighbor_index]
-                    ag_graph.add_edge(contig_id_int, neighbor_id_int)
-        ag_adj_matrix = nx.adjacency_matrix(ag_graph).toarray()
-        ag_adj_matrix_path = "/home/gaoweicong/cami1-low-ag-graph.npy"
-        np.save(ag_adj_matrix_path, ag_adj_matrix, allow_pickle=True)
-        print(type(ag_adj_matrix))
-        print(ag_adj_matrix.shape)
-        print("successfully saved.")
-        """
-        ag_adj_square_matrix = ag_adj_matrix.dot(ag_adj_matrix).dot(ag_adj_matrix)
-        for i in trange(len(contig_id_list), desc="Refine neighbor list..."):
-            neighbors_mask = []
-            knn_neighbor_ids = data_list[i]["neighbors"]
-            for j in knn_neighbor_ids:
-                if ag_adj_square_matrix[i][j] > 0:
-                    neighbors_mask.append(1)
-                else:
-                    neighbors_mask.append(0)
-            neighbors_mask = np.array(neighbors_mask)
-            data_list[i]["neighbors_mask"] = neighbors_mask
-            # TODO: reupdate the weights matrix of different neighbors.
-        """
-        return data_list
-
-    def extract_non_dead_ends_feature(self):
-        ag_graph = nx.Graph()
-        id_list = []
-        root = zarr.open(self.zarr_dataset_path, mode="r")
-        contig_id_list = root.attrs["contig_id_list"]
-
-        for i, c_id in enumerate(tqdm(contig_id_list)):
-            contig_id = np.array(root[c_id]["id"])
-            contig_id_int = int(contig_id[0])
-            ag_graph.add_node(contig_id_int)
-            id_list.append(contig_id_int)
-
-        for i, c_id in enumerate(tqdm(contig_id_list)):
-            ag_graph_edges = root[c_id]["ag_graph_edges"]
-            contig_id = np.array(root[c_id]["id"])
-            contig_id_int = int(contig_id[0])
-
-            for edge_pair in ag_graph_edges:
-                neighbor_id = edge_pair[1]
-                if neighbor_id in id_list:
-                    neighbor_index = get_index_by_id_from_list(neighbor_id, id_list)
-                    neighbor_id_int = id_list[neighbor_index]
-                    ag_graph.add_edge(contig_id_int, neighbor_id_int)
-        
-        # transform the adjacency matrix to ndarray version.
-        ag_adj_matrix = nx.adjacency_matrix(ag_graph).toarray()
-        
-        dead_ends_num = 0
-        mask_vector = [] # store the mask vector for the graph fusion.
-        non_dead_ends_ag_adj_matrix = []
-        non_dead_ends_ag_adj_matrix_path = "/home/comp/cswcgao/cami1-low-ag-non-dead-ends-graph.npy"
-        mask_vector_path = "/home/comp/cswcgao/cami1-low-mask-vector.npy"
-        neighbors_vector = np.sum(ag_adj_matrix, axis=0)
-        for i, c_id in enumerate(tqdm(contig_id_list)):
-            mask = 1
-            if neighbors_vector[i] == 0:
-                dead_ends_num += 1
-                mask = 0
-            mask_vector.append(mask)
-            non_dead_ends_ag_adj_matrix.append(ag_adj_matrix[i])
-        
-        # save the npy file here.
-        non_dead_ends_ag_adj_matrix = np.array(non_dead_ends_ag_adj_matrix)
-        mask_vector = np.array(mask_vector)
-        np.save(non_dead_ends_ag_adj_matrix_path, non_dead_ends_ag_adj_matrix, allow_pickle=True)
-        np.save(mask_vector_path, mask_vector, allow_pickle=True)
-        print("test for the shape of non dead ends ag adj matrix shape: {}".format(non_dead_ends_ag_adj_matrix.shape))
-        print("Successfully saved.")
 
     @staticmethod
     def zscore(array, axis=None):
@@ -673,3 +508,328 @@ class MatrixFactorizationDataset(Dataset):
                 item["ag_value"] = ag_value
                 item["pe_value"] = pe_value
                 self.data.append(item)
+
+
+class GMGATTransformerDataset(Dataset):
+    """GMGAT Transformer Dataset object, which includes the graph embedding 
+    compared to Graph Dataset and can be treated as pure transformer.
+
+    """
+    def __init__(
+        self,
+        zarr_dataset_path: str = "",
+    ):
+        #TODO: add the graph embedding module.
+        #TODO: add the concatenation codes.
+        pass
+
+
+class MultiGraphDataset(Dataset):
+    """Graph dataset object, loading dataset in a batch-wise manner.
+
+    Args:
+        zarr_dataset_path (string): path of zarr dataset root.
+        k (int): k nearest neighbor used in neighbors.
+        sigma (float): Gaussian variance when computing neighbors coefficient.
+        use_neighbor_feature (boolean): whether to use the reconstructing 
+            neighbors strategy.
+
+    Each contig is stored into dictionary, with following keys:
+        - feature: concated tnf and rpkm feature dim (104, 1);
+
+    """
+    # TODO: add feature per batch as comments.
+    def __init__(
+        self,
+        zarr_dataset_path: str = "",
+        k: int = 5,
+        sigma: int = 1,
+        use_neighbor_feature=True,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__()
+        self.zarr_dataset_path = zarr_dataset_path
+        self.k = k
+        self.use_neighbor_feature = use_neighbor_feature
+        self.Gaussian = Gaussian(sigma=sigma)
+        self.data = []
+
+        self.data = self.load_dataset(zarr_dataset_path)
+
+    def load_dataset(self, zarr_dataset_path):
+        data_list = self._load_graph_attrs(zarr_dataset_path)
+        if self.use_neighbor_feature:
+            data_list = self.create_knn_graph(data_list)
+        return data_list
+
+    def __getitem__(self, index: int):
+        return self.data[index]
+
+    def __len__(self):
+        return len(self.data)
+
+    def _load_graph_attrs(self, zarr_dataset_path: str):
+        root = zarr.open(zarr_dataset_path, mode="r")
+        contig_id_list = root.attrs["contig_id_list"]
+        data_list = []
+        for i in tqdm(contig_id_list):
+            item = {}
+            tnf = np.array(root[i]["tnf_feat"])
+            normalized_tnf = self.zscore(tnf, axis=0)
+            rpkm = np.array(root[i]["rpkm_feat"])
+            feature = np.concatenate((normalized_tnf, rpkm), axis=0)
+            labels = np.array(root[i]["labels"])
+            contig_id = np.array(root[i]["id"])
+            item["feature"] = feature
+            item["labels"] = labels
+            item["id"] = contig_id
+            data_list.append(item)
+        return data_list
+
+    def create_knn_graph(self, data_list):
+        """Updates the k nearest neighbors for each contig in dictionary. 
+        
+        Alerts: knn graph is created by id vector, stores the neightbors 
+        and weights for each neighbor.
+
+        Args:
+            data_list (list): list format dataset.
+
+        Returns:
+            data_list (list): list format dataset.
+        """
+        id_list = []
+        feature_list = []
+        for i in range(len(data_list)):
+            feature_list.append(data_list[i]["feature"])
+            id_list.append(data_list[i]["id"])
+        
+        feature_array = np.array(feature_list)
+        id_array = np.array(id_list)
+        # TODO: remove feature_array.shape[0] by using N.
+        for i in trange(feature_array.shape[0], desc="Creating KNN graph......."):
+            tar_feature = np.expand_dims(feature_array[i], axis=0)
+            dist_array = np.power((feature_array - tar_feature), 2)
+            dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
+            pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
+            sorted_pairs = pairs[pairs[:, 0].argsort()]
+            top_k_pairs = sorted_pairs[1: self.k+1]
+            k_nearest_dis_array = self.Gaussian.cal_coefficient(top_k_pairs[:, 0])
+            normalized_k_dis_array = softmax(k_nearest_dis_array)
+            neighbors_array = top_k_pairs[:, 1]
+            data_list[i]["neighbors"] = neighbors_array
+            data_list[i]["weights"] = normalized_k_dis_array
+            if self.use_neighbor_feature:
+                neighbor_feature = []
+                for index in range(self.k):
+                    neighbor_id = int(neighbors_array[index])
+                    # search the feature by the id array tensor.
+                    for j in range(feature_array.shape[0]):
+                        if int(id_array[j]) == neighbor_id:
+                            neighbor_feature.append(feature_array[j])
+                neighbor_feature = np.stack(neighbor_feature, axis=0)
+                data_list[i]["neighbors_feature"] = neighbor_feature
+
+        return data_list
+
+    @staticmethod
+    def zscore(array, axis=None):
+        """Normalize feature using zscore.
+
+        Args:
+            array (np.ndarray): feature to be normalized.
+            axis (int): axis to average.
+
+        Returns:
+            normalized_array (np.ndarray): New normalized Numpy-array
+        """
+        mean = array.mean(axis=axis)
+        std = array.std(axis=axis)
+        normalized_array = (array - mean) / std
+        return normalized_array
+
+
+class AgFeatGraphDataset(Dataset):
+    """Graph dataset object, loading dataset in a batch-wise manner.
+
+    Args:
+        zarr_dataset_path (string): path of zarr dataset root.
+        k (int): k nearest neighbor used in neighbors.
+        sigma (float): Gaussian variance when computing neighbors coefficient.
+        use_neighbor_feature (boolean): whether to use the reconstructing 
+            neighbors strategy.
+
+    Each contig is stored into dictionary, with following keys:
+        - feature: concated tnf and rpkm feature dim (104, 1);
+
+    """
+    def __init__(
+        self,
+        zarr_dataset_path: str = "/home/eddie/cami1-low-large.zarr",
+        ag_feature_path: str = "/home/eddie/cami1-low/ag-feat.npy",
+        id_mask_path: str = "/home/eddie/cami1-low/ag-mask.npy",
+        k: int = 5,
+        sigma: int = 1,
+        use_neighbor_feature: bool = True,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__()
+        self.zarr_dataset_path = zarr_dataset_path
+        self.ag_feature_path = ag_feature_path
+        self.id_mask_path = id_mask_path
+        self.k = k
+        self.use_neighbor_feature = use_neighbor_feature
+        self.Gaussian = Gaussian(sigma=sigma)
+        self.data = []
+
+        self.data = self.load_dataset(zarr_dataset_path)
+
+    def load_dataset(self, zarr_dataset_path):
+        data_list = self._load_graph_attrs(zarr_dataset_path)
+        if self.use_neighbor_feature:
+            data_list = self.create_knn_graph(data_list)
+            data_list = self.create_ag_based_knn_graph(data_list) 
+        return data_list
+
+    def __getitem__(self, index: int):
+        return self.data[index]
+
+    def __len__(self):
+        return len(self.data)
+
+    def _load_graph_attrs(self, zarr_dataset_path: str):
+        root = zarr.open(zarr_dataset_path, mode="r")
+        contig_id_list = root.attrs["contig_id_list"]
+        id_mask = np.load(self.id_mask_path)
+        id_mask_list = [item for item in id_mask]
+        data_list = []
+        for i, c in enumerate(tqdm(contig_id_list)):
+            item = {}
+            tnf = np.array(root[c]["tnf_feat"])
+            normalized_tnf = self.zscore(tnf, axis=0)
+            rpkm = np.array(root[c]["rpkm_feat"])
+            feature = np.concatenate((normalized_tnf, rpkm), axis=0)
+            labels = np.array(root[c]["labels"])
+            contig_id = np.array(root[c]["id"])
+            item["feature"] = feature
+            item["labels"] = labels
+            item["id"] = contig_id
+            item["id_mask"] = id_mask_list[i]
+            data_list.append(item)
+        return data_list
+
+    def create_ag_based_knn_graph(self, data_list):
+        root = zarr.open(self.zarr_dataset_path, "r")
+        non_dead_ends_id_list = root.attrs["non_dead_ends_contig_id_list"]
+        feature_list = []
+        id_list = []
+        for i in range(len(data_list)):
+            feature_list.append(data_list[i]["feature"])
+            id_list.append(data_list[i]["id"])
+        original_feature_array = np.array(feature_list)
+        original_id_array = np.array(id_list)
+        pca_feature_array = np.load(self.ag_feature_path)
+        non_dead_ends_id_array = np.array(non_dead_ends_id_list).reshape(-1, 1)
+        
+        # Non-dead-ends neighbors feature.
+        for i in trange(len(non_dead_ends_id_list), desc="Creating AG based KNN graph"):
+            tar_feat = np.expand_dims(pca_feature_array[i], axis=0)
+            dist_array = np.power((pca_feature_array - tar_feat), 2)
+            dist_sum_array = np.sum(dist_array, axis=1).reshape((pca_feature_array.shape[0], 1))
+            pairs = np.concatenate((dist_sum_array, non_dead_ends_id_array), axis=1) # track the id.
+            sorted_pairs = pairs[pairs[:, 0].argsort()]
+            top_k_pairs = sorted_pairs[1: self.k+1]
+            k_nearest_dis_array = self.Gaussian.cal_coefficient(top_k_pairs[:, 0])
+            normalized_k_dis_array = softmax(k_nearest_dis_array)
+            neighbors_array = top_k_pairs[:, 1]
+
+            # data list i is not paired with the outer looping i.
+            origin_index = get_index_by_id_from_array(non_dead_ends_id_list[i], original_id_array)
+            #data_list[origin_index]["ag_based_knn_neighbors"] = neighbors_array
+            data_list[origin_index]["ag_based_knn_weights"] = normalized_k_dis_array
+            if self.use_neighbor_feature:
+                neighbor_feature = []
+                for index in range(self.k):
+                    neighbor_id = int(neighbors_array[index])
+                    # search the feature by the id array tensor.
+                    for j in range(original_feature_array.shape[0]):
+                        if int(original_id_array[j]) == neighbor_id:
+                            neighbor_feature.append(original_feature_array[j])
+                neighbor_feature = np.stack(neighbor_feature, axis=0)
+                data_list[origin_index]["ag_based_neighbors_feature"] = neighbor_feature
+        
+        # Dead-ends neighbors feature.
+        for item in data_list:
+            if item["id_mask"] == 0:
+                neighbor_feature_list = []
+                for index in range(self.k):
+                    neighbor_feature_list.append(item["feature"])
+                neighbor_feature = np.stack(neighbor_feature_list)
+                item["ag_based_neighbors_feature"] = neighbor_feature
+                item["ag_based_knn_weights"] = np.array([1/self.k for i in range(self.k)])
+        
+        return data_list
+
+    def create_knn_graph(self, data_list):
+        """Updates the k nearest neighbors for each contig in the dictionary. 
+        
+        Alerts: knn graph is created by id vector, stores the neightbors 
+        and weights for each neighbor.
+
+        Args:
+            data_list (list): list format dataset.
+
+        Returns:
+            data_list (list): list format dataset.
+        """
+        id_list = []
+        feature_list = []
+        for i in range(len(data_list)):
+            feature_list.append(data_list[i]["feature"])
+            id_list.append(data_list[i]["id"])
+        
+        feature_array = np.array(feature_list)
+        id_array = np.array(id_list)
+        # TODO: remove feature_array.shape[0] by using N.
+        for i in trange(feature_array.shape[0], desc="Creating KNN graph......."):
+            tar_feature = np.expand_dims(feature_array[i], axis=0)
+            dist_array = np.power((feature_array - tar_feature), 2)
+            dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
+            pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
+            sorted_pairs = pairs[pairs[:, 0].argsort()]
+            top_k_pairs = sorted_pairs[1: self.k+1]
+            k_nearest_dis_array = self.Gaussian.cal_coefficient(top_k_pairs[:, 0])
+            normalized_k_dis_array = softmax(k_nearest_dis_array)
+            neighbors_array = top_k_pairs[:, 1]
+            data_list[i]["neighbors"] = neighbors_array
+            data_list[i]["weights"] = normalized_k_dis_array
+            if self.use_neighbor_feature:
+                neighbor_feature = []
+                for index in range(self.k):
+                    neighbor_id = int(neighbors_array[index])
+                    # search the feature by the id array tensor.
+                    for j in range(feature_array.shape[0]):
+                        if int(id_array[j]) == neighbor_id:
+                            neighbor_feature.append(feature_array[j])
+                neighbor_feature = np.stack(neighbor_feature, axis=0)
+                data_list[i]["neighbors_feature"] = neighbor_feature
+
+        return data_list
+
+    @staticmethod
+    def zscore(array, axis=None):
+        """Normalize feature using zscore.
+
+        Args:
+            array (np.ndarray): feature to be normalized.
+            axis (int): axis to average.
+
+        Returns:
+            normalized_array (np.ndarray): New normalized Numpy-array
+        """
+        mean = array.mean(axis=axis)
+        std = array.std(axis=axis)
+        normalized_array = (array - mean) / std
+        return normalized_array
