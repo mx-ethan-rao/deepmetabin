@@ -7,5 +7,5 @@ decoder_latent_dim: 128
 decoder_hidden_dim: 128
 decoder_output_dim: 104
 w_rec: 1
-w_kl: 0.01
+w_kl: 0.000156
 lr: 0.0001

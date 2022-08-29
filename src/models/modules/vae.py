@@ -15,16 +15,25 @@ class Encoder(nn.Module):
         self.var_layer = nn.Linear(hidden_dim, latent_dim)
 
         self.LeakyReLU = nn.LeakyReLU(0.2)
+        self.dropout_layer = nn.Dropout(0.2)
+        self.norm_layer = nn.BatchNorm1d(hidden_dim)
 
     def forward(self, x):
         h = self.LeakyReLU(self.layer1(x))
+        h = self.norm_layer(h)
+        h = self.dropout_layer(h)
+
         h = self.LeakyReLU(self.layer2(h))
+        h = self.norm_layer(h)
+        h = self.dropout_layer(h)
+
         h = self.LeakyReLU(self.layer3(h))
+        h = self.dropout_layer(h)
 
         mean = self.mean_layer(h)
         log_var = self.var_layer(h)
 
-        return mean, log_var
+        return h, mean, log_var
 
 
 class Decoder(nn.Module):
@@ -36,11 +45,18 @@ class Decoder(nn.Module):
         self.layer3 = nn.Linear(hidden_dim, output_dim)
         
         self.LeakyReLU = nn.LeakyReLU(0.2)
-
+        self.dropout_layer = nn.Dropout(0.2)
+        self.norm_layer = nn.BatchNorm1d(hidden_dim)
 
     def forward(self, x):
         h = self.LeakyReLU(self.layer1(x))
+        h = self.norm_layer(h)
+        h = self.dropout_layer(h)
+
         h = self.LeakyReLU(self.layer2(h))
+        h = self.norm_layer(h)
+        h = self.dropout_layer(h)
+
         output = torch.sigmoid(self.layer3(h))
         return output
 
@@ -49,10 +65,10 @@ class VAENet(nn.Module):
     def __init__(
         self,
         encoder_input_dim=104,
-        encoder_hidden_dim=128,
-        encoder_latent_dim=128,
-        decoder_latent_dim=128,
-        decoder_hidden_dim=128,
+        encoder_hidden_dim=512,
+        encoder_latent_dim=32,
+        decoder_latent_dim=32,
+        decoder_hidden_dim=512,
         decoder_output_dim=104,
         *args,
         **kwargs,
@@ -75,11 +91,11 @@ class VAENet(nn.Module):
         return z
 
     def forward(self, x):
-        mean, log_var = self.Encoder(x)
+        latent, mean, log_var = self.Encoder(x)
         z = self.reparameterization(mean, torch.exp(0.5 * log_var))
         x_hat = self.Decoder(z)
 
-        return x_hat, mean, log_var
+        return latent, x_hat, mean, log_var
 
 
 class LossFunctions:
@@ -91,13 +107,13 @@ class LossFunctions:
         reconstruction_loss = self.reconstruction_loss(x, x_hat)
         kl_loss = self.kl_loss(mean, log_var)
         loss = self.w_rec * reconstruction_loss + self.w_kl * kl_loss
-        return reconstruction_loss, kl_loss, loss
+        return reconstruction_loss * self.w_rec, kl_loss * self.w_kl, loss
 
     def reconstruction_loss(self, x, x_hat):
         reconstruction_loss = nn.functional.binary_cross_entropy(x_hat, x, reduction="sum")
-        return reconstruction_loss
+        return reconstruction_loss.mean()
 
     def kl_loss(self, mean, log_var):
         kl_loss = - 0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-        return kl_loss
+        return kl_loss.mean()
 
