@@ -239,12 +239,12 @@ def visualize_graph(bin_list, num_contigs, save_path):
             node_weights_list.append(dist_sum_array[j])
 
     graph.add_edges(edge_list)
-    layout = graph.layout_fruchterman_reingold()
+    #layout = graph.layout_fruchterman_reingold()
     graph.vs["color"] = node_colour_list
     graph.vs["label"] = node_label_list
     graph.es["label"] = node_weights_list
     visual_style = {}
-    visual_style["layout"] = layout
+    #visual_style["layout"] = layout
     visual_style["vertex_size"] = 10
     visual_style["bbox"] = (1200, 1200)
     igraph.plot(graph, save_path, **visual_style)
