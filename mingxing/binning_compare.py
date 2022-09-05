@@ -217,6 +217,7 @@ def visualize_graph(bin_list, num_contigs, save_path):
     node_label_list = []
     node_weights_list = []
     node_embedding_list = []
+    edge_list = []
 
     for bin_id, bin in enumerate(bin_list):
         for contig in bin:
@@ -232,8 +233,12 @@ def visualize_graph(bin_list, num_contigs, save_path):
         tar_feature = np.expand_dims(embedding_array[i], axis=0)
         dist_array = np.power((embedding_array - tar_feature), 2)
         dist_sum_array = np.sum(dist_array, axis=1).reshape((embedding_array.shape[0], 1))
-        node_weights_list.extend(dist_sum_array[i] for i in range(embedding_array.shape[0]))
-    
+
+        for j in range(i + 1, len(node_embedding_list)):
+            edge_list.append((i, j))
+            node_weights_list.append(dist_sum_array[j])
+
+    graph.add_edges(edge_list)
     layout = graph.layout_fruchterman_reingold()
     graph.vs["color"] = node_colour_list
     graph.vs["label"] = node_label_list
@@ -241,7 +246,7 @@ def visualize_graph(bin_list, num_contigs, save_path):
     visual_style = {}
     visual_style["layout"] = layout
     visual_style["vertex_size"] = 10
-    visual_style["bbox"] = (800, 800)
+    visual_style["bbox"] = (1200, 1200)
     igraph.plot(graph, save_path, **visual_style)
 
 
@@ -322,8 +327,8 @@ if __name__ == "__main__":
                 deepmetabin_result[int(items[1])].append({"contig_id": items[0], "contig_embedding": deepmetabin_res[items[0]]})
     deepmetabin_result = dict(deepmetabin_result)
 
-    visualize_graph(vamb_result.values(), args.num_contigs, '/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/vamb.png')
-    visualize_graph(deepmetabin_result.values(), args.num_contigs, '/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/deepmetabin.png')
+    visualize_graph(vamb_result.values(), args.num_contigs, '/home/comp/cswcgao/binning/logging/vamb.png')
+    visualize_graph(deepmetabin_result.values(), args.num_contigs, '/home/comp/cswcgao/binning/logging/deepmetabin.png')
 
 
 
