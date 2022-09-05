@@ -660,3 +660,46 @@ def generate_csv_from_bin_tensor(output_csv_path, id_tensor, results):
             bin_id = int(results[i])
             output_contig_head = "NODE_" + "{}".format(int(contig_id))
             writer.writerow([output_contig_head, bin_id])
+
+
+def visualize_graph(bin_list, contig_list, save_path):
+    """Visualize the graph from model results.
+
+    Args:
+        bin_list (list): cluster list including of 
+        contig_list (list): list of contig id to log.
+        save_path (str): plotting path of graph.
+    """
+    graph = igraph.Graph()
+    graph_size = len(contig_list)
+    graph.add_vertices(graph_size)
+    node_colour_list = []
+    node_label_list = []
+    node_weights_list = []
+    node_embedding_list = []
+
+    for bin_id, bin in enumerate(bin_list):
+        for contig in bin:
+            contig_id = contig["contig_id"]
+            contig_embedding = contig["contig_embedding"]
+
+            node_colour_list.append(COLOUR_DICT[bin_id])
+            node_label_list.append(contig_id)
+            node_embedding_list.append(contig_embedding)
+
+    embedding_array = np.array(node_embedding_list)
+    for i in trange(len(node_embedding_list)):
+        tar_feature = np.expand_dims(embedding_array[i], axis=0)
+        dist_array = np.power((embedding_array - tar_feature), 2)
+        dist_sum_array = np.sum(dist_array, axis=1).reshape((embedding_array.shape[0], 1))
+        node_weights_list.extend(dist_sum_array[i] for i in range(embedding_array.shape[0]))
+    
+    layout = graph.layout_fruchterman_reingold()
+    graph.vs["color"] = node_colour_list
+    graph.vs["label"] = node_label_list
+    graph.es["label"] = node_weights_list
+    visual_style = {}
+    visual_style["layout"] = layout
+    visual_style["vertex_size"] = 10
+    visual_style["bbox"] = (800, 800)
+    igraph.plot(graph, save_path, **visual_style)
