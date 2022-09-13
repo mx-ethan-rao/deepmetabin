@@ -7,14 +7,13 @@ class KMeansClusteringLoss(torch.nn.Module):
         super(KMeansClusteringLoss,self).__init__()
 
     def forward(self, encode_output, centroids, mask_matrix):
-        print(self.intra_class_distance(encode_output, centroids, mask_matrix))
         return self.intra_class_distance(encode_output, centroids, mask_matrix) - self.inter_class_distance(centroids)
 
     def intra_class_distance(self, encode_output, centroids, mask_matrix):
         """Calculate the intra_class distance from known results.
         Args:
-            encode_output (torch.float32): k x d matrix, where d is the hidden size
-            centroids (torch.float32): n x d where d is the hiddent size
+            encode_output (torch.float32): n x d matrix, where d is the hidden size
+            centroids (torch.float32): k x d where d is the hiddent size
             mask_matrix (torch.bool): n x k matrix, plotting path of graph. 
                                     e.g. mask_matrix[i][j] = True means data sample i belongs to cluster j
         """
@@ -41,7 +40,7 @@ class KMeansClusteringLoss(torch.nn.Module):
     def inter_class_distance(self, centroids):
         """Calculate the inter_class distance from known results.
         Args:
-            centroids (torch.float32): n x d where d is the hiddent size
+            centroids (torch.float32): k x d where d is the hiddent size
         """
         d = centroids.shape[1]
         k = centroids.shape[0]
