@@ -11,6 +11,7 @@
 import igraph
 import zarr
 import time
+import torch
 import numpy as np
 from tqdm import trange, tqdm
 from absl import app, flags
@@ -18,12 +19,22 @@ from src.utils.plot import update_graph_labels
 from src.utils.util import summary_bin_list_from_csv
 
 
-def plot_graph(root_path, csv_path, k, graph_type, output_path="/home/eddie/cami1-low-log"):
+def plot_graph(
+    root_path,
+    csv_path,
+    k,
+    graph_type,
+    output_path="/home/eddie/cami1-low-log",
+    threshold=0.2,
+    compute_method="top_k",
+):
     data_list, contig_id_list = load_dataset(root_path)
     
     data_list = create_knn_graph(
         data_list,
         k,
+        threshold,
+        compute_method,
     )
 
     plotting_graph_size = 1000
@@ -129,7 +140,7 @@ def load_dataset(zarr_dataset_path):
     return data_list, contig_id_list
 
 
-def create_knn_graph(data_list, k):
+def create_knn_graph(data_list, k, threshold=0.2, compute_method="top_k"):
     """Updates the k nearest neighbors for each contig in the dictionary. 
     
     Alerts: knn graph is created by id vector, stores the neightbors 
@@ -152,17 +163,17 @@ def create_knn_graph(data_list, k):
     id_array = np.array(id_list)
     # TODO: remove feature_array.shape[0] by using N.
     for i in trange(feature_array.shape[0], desc="Creating KNN graph......."):
-        tar_feature = np.expand_dims(feature_array[i], axis=0)
-        dist_array = np.power((feature_array - tar_feature), 2)
-        dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
-        pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
-        sorted_pairs = pairs[pairs[:, 0].argsort()]
-        top_k_pairs = sorted_pairs[1: k+1]
-        k_nearest_dis_array = Gau.cal_coefficient(top_k_pairs[:, 0])
-        normalized_k_dis_array = softmax(k_nearest_dis_array)
-        neighbors_array = top_k_pairs[:, 1]
+        neighbors_array = compute_neighbors(
+            index=i,
+            feature_array=feature_array,
+            id_array=id_array,
+            k=k,
+            threshold=threshold,
+            use_gpu=False,
+            compute_method=compute_method,
+        )
         data_list[i]["neighbors"] = neighbors_array
-        data_list[i]["weights"] = normalized_k_dis_array
+        #data_list[i]["weights"] = normalized_k_dis_array
 
     return data_list
 
@@ -170,23 +181,47 @@ def create_knn_graph(data_list, k):
 def compute_neighbors(
         index,
         feature_array,
-        compute_method=None,
+        id_array,
+        k,
+        threshold=0.2,
+        use_gpu=False,
+        compute_method="top_k",
     ):
     """Compute the neighbors of a single contig;
     
     Args:
         index (int): contig index in data list.
         feature_array (np.array): global feature array.
+        id_array (np.array): global id array.
         compute_method (str): method to compute the knn neighbors, including "top_k" and "threshold".
+        k (int): top k neighbors from global.
+        threshold (float): threshold to filter the knn neighbors.
+        use_gpu (boolean): whether to use gpu.
+        compute_method (str): methods to compute the neighbors for each contig.
     """
     if compute_method == "top_k":
         tar_feature = np.expand_dims(feature_array[index], axis=0)
         dist_array = np.power((feature_array - tar_feature), 2)
         dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
-        pairs = np.concatenate(())
-
+        pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
+        sorted_pairs = pairs[pairs[:, 0].argsort()]
+        top_k_pairs = sorted_pairs[1: k+1]
+        neighbors_array = top_k_pairs[:, 1]
+        return neighbors_array
     elif compute_method == "threshold":
-        pass
+        data = torch.from_numpy(feature_array)
+        if use_gpu:
+            data = data.cuda()
+        N = data.shape[0]
+        similar_m = []
+        weight_m = []
+        dis = torch.sum(torch.pow(data-data[index,:],2),dim=1)
+        sorted, ind = dis.sort()
+        K = torch.sum(sorted[1:K+1] < threshold)
+        similar_m.append(ind[1:K+1].view(1,K).cpu())
+        return np.array(similar_m)
+    else:
+        raise NotImplementedError("Only support top_k and threshold method currently.")
 
 
 def construct_knn_graph(data_list, plotting_graph_size, plotting_contig_list, k=1):
@@ -286,6 +321,8 @@ if __name__ == "__main__":
     flags.DEFINE_string("graph_type", "", "")
     flags.DEFINE_integer("k", 3, "")
     flags.DEFINE_string("output_path", "", "")
+    flags.DEFINE_float("threshold", 0.2, "")
+    flags.DEFINE_string("compute_method", "top_k", "")
     """
     root_path = "/home/eddie/cami1-low-long.zarr"
     csv_nc_path = "/home/eddie/cami1-low/nc_result.csv"
