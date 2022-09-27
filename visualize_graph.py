@@ -215,11 +215,15 @@ def compute_neighbors(
         pairs = np.concatenate((dist_sum_array, id_array), axis=1)
         sorted_pairs = pairs[pairs[:, 0].argsort()]
         mask = sorted_pairs[:, 0] < threshold
+        mask = mask.tolist()
         neighbors_list = []
         for i in range(feature_array.shape[0]):
+            if i == 0:
+                continue
             if mask[i] is True:
                 neighbors_list.append(sorted_pairs[i, 1])
-        return np.array(neighbors_list)
+        neighbors_array = np.array(neighbors_list)
+        return neighbors_array
     else:
         raise NotImplementedError("Only support top_k and threshold method currently.")
 
@@ -239,6 +243,7 @@ def construct_knn_graph(data_list, plotting_graph_size, plotting_contig_list, k=
             node_label_list.append(int(labels))
             if neighbors is None:
                 continue
+            k = neighbors.shape[0]
             for j in range(k):
                 neighbor_id = int(neighbors[j])
                 if neighbor_id in plotting_contig_list:
