@@ -209,17 +209,17 @@ def compute_neighbors(
         neighbors_array = top_k_pairs[:, 1]
         return neighbors_array
     elif compute_method == "threshold":
-        data = torch.from_numpy(feature_array)
-        if use_gpu:
-            data = data.cuda()
-        N = data.shape[0]
-        similar_m = []
-        weight_m = []
-        dis = torch.sum(torch.pow(data-data[index,:],2),dim=1)
-        sorted, ind = dis.sort()
-        K = torch.sum(sorted[1:K+1] < threshold)
-        similar_m.append(ind[1:K+1].view(1,K).cpu())
-        return np.array(similar_m)
+        tar_feature = np.expand_dims(feature_array[index], axis=0)
+        dist_array = np.power((feature_array - tar_feature), 2)
+        dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
+        pairs = np.concatenate((dist_sum_array, id_array), axis=1)
+        sorted_pairs = pairs[pairs[:, 0].argsort()]
+        mask = sorted_pairs[:, 0] < threshold
+        neighbors_list = []
+        for i in range(feature_array.shape[0]):
+            if mask[i] is True:
+                neighbors_list.append(sorted_pairs[i, 1])
+        return np.array(neighbors_list)
     else:
         raise NotImplementedError("Only support top_k and threshold method currently.")
 
@@ -232,12 +232,13 @@ def construct_knn_graph(data_list, plotting_graph_size, plotting_contig_list, k=
     node_num = len(data_list)
     for i in trange(node_num, desc="Creating KNN Subgraph for Visualization"):
         id = int(data_list[i]["id"])
-        highlight_bins = [23, 26, 28]
         labels = int(data_list[i]["labels"])
-        if id in plotting_contig_list and labels in highlight_bins:
+        if id in plotting_contig_list:
             neighbors = data_list[i]["neighbors"]
             labels = data_list[i]["labels"]
             node_label_list.append(int(labels))
+            if neighbors is None:
+                continue
             for j in range(k):
                 neighbor_id = int(neighbors[j])
                 if neighbor_id in plotting_contig_list:
@@ -288,6 +289,8 @@ class PlottingManager:
         graph_type,
         k,
         output_path,
+        threshold,
+        compute_method,
         **kwargs,
     ):
         self.root_path = root_path
@@ -295,6 +298,8 @@ class PlottingManager:
         self.graph_type = graph_type
         self.k = k
         self.output_path = output_path
+        self.threshold = threshold
+        self.compute_method = compute_method
 
     def plot(self):
         plot_graph(
@@ -303,6 +308,8 @@ class PlottingManager:
             graph_type=self.graph_type,
             k=self.k,
             output_path=self.output_path,
+            threshold=self.threshold,
+            compute_method=self.compute_method,
         )
 
 
