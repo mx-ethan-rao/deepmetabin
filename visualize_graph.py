@@ -58,6 +58,30 @@ def create_matrix(data_list):
     return pre_compute_matrix
 
 
+def summary_bin_list_from_array(
+    data_list,
+    labels_array,
+):
+    contig_num = labels_array.shape[0]
+    cluster_list = []
+    for i in range(contig_num):
+        if labels_array[i] in cluster_list:
+            pass
+        else:
+            cluster_list.append(labels_array[i])
+    
+    num_cluster = len(cluster_list)
+    bin_list = [[] for i in range(num_cluster)]
+    for i in range(contig_num):
+        cluster_id = labels_array[i]
+        contig_id = data_list[i]["id"]
+        for index, cluster in enumerate(cluster_list):
+            if cluster_id == cluster:
+                bin_list[index].append(contig_id)
+
+    return bin_list
+
+
 def plot_dbscan_graph(
     root_path,
     csv_path,
@@ -78,10 +102,31 @@ def plot_dbscan_graph(
         threshold,
         compute_method,
     )
+
+    plotting_graph_size = 1000
+    plotting_contig_list = contig_id_list[:plotting_graph_size]
     pre_compute_matrix = create_matrix(data_list=data_list)
     cluster_result = dbscan.fit(pre_compute_matrix)
     labels_array = cluster_result.labels_
+    bin_list = summary_bin_list_from_array(
+        data_list=data_list,
+        labels_array=labels_array,
+    )
+    
+    knn_graph = construct_knn_graph(
+        data_list=data_list,
+        plotting_graph_size=plotting_graph_size,
+        plotting_contig_list=plotting_contig_list,
+        k=k,
+    )
 
+    plot_knn_graph(
+        graph=knn_graph,
+        log_path=output_path,
+        graph_type=graph_type,
+        plotting_contig_list=plotting_contig_list,
+        bin_list=bin_list,
+    )
 
 def plot_graph(
     root_path,
