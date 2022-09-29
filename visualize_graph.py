@@ -12,11 +12,39 @@ import igraph
 import zarr
 import time
 import torch
+import csv
 import numpy as np
 from tqdm import trange, tqdm
 from absl import app, flags
 from src.utils.plot import update_graph_labels
 from src.utils.util import summary_bin_list_from_csv
+
+
+def write_csv(
+    list1,
+    list2,
+    output_csv_path="/home/eddie/cami1-low-log/output.csv",
+):
+    with open(output_csv_path, 'w', newline='') as file:
+        writer = csv.writer(file)
+        for index in list1:
+            writer.writerow(["NODE_{}".format(index), 1])
+        for index in list2:
+            writer.writerow(["NODE_{}".format(index), 2])
+
+
+def write_contig_csv(
+    bin_list,
+    plot_contig_list,
+    output_csv_path="/home/eddie/cami1-low-log/plot.csv",    
+):
+    with open(output_csv_path, 'w', newline='') as file:
+        writer = csv.writer(file)
+        bin_num = len(bin_list)
+        for i in range(bin_num):
+            for contig_id in bin_list[i]:
+                if contig_id in plot_contig_list:
+                    writer.writerow(["NODE_{}".format(contig_id), i])
 
 
 def plot_graph(
@@ -40,6 +68,16 @@ def plot_graph(
     plotting_graph_size = 1000
     plotting_contig_list = contig_id_list[:plotting_graph_size]
     bin_list = summary_bin_list_from_csv(csv_path)
+    write_contig_csv(
+        bin_list=bin_list,
+        plot_contig_list=plotting_contig_list,
+    )
+    """
+    write_csv(
+        list1=bin_list[23],
+        list2=bin_list[28],
+    )
+    """
     knn_graph = construct_knn_graph(
         data_list=data_list,
         plotting_graph_size=plotting_graph_size,
