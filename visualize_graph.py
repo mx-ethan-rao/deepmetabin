@@ -48,12 +48,13 @@ def write_contig_csv(
 
 def create_matrix(data_list):
     node_num = len(data_list)
-    pre_compute_matrix = np.zeros((node_num, node_num))
+    pre_compute_matrix = np.full((node_num, node_num), 100)
     for i in range(node_num):
         neighbors_array = data_list[i]["neighbors"]
+        distances_array = data_list[i]["distances"]
         neighbors_num = neighbors_array.shape[0]
         for j in range(neighbors_num):
-            pre_compute_matrix[i][neighbors_array[j]] = 1
+            pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
     return pre_compute_matrix
 
 
@@ -79,6 +80,7 @@ def plot_dbscan_graph(
     )
     pre_compute_matrix = create_matrix(data_list=data_list)
     cluster_result = dbscan.fit(pre_compute_matrix)
+    labels_array = cluster_result.labels_
 
 
 def plot_graph(
@@ -234,7 +236,7 @@ def create_knn_graph(data_list, k, threshold=0.2, compute_method="top_k"):
     id_array = np.array(id_list)
     # TODO: remove feature_array.shape[0] by using N.
     for i in trange(feature_array.shape[0], desc="Creating KNN graph......."):
-        neighbors_array = compute_neighbors(
+        neighbors_array, distance_array = compute_neighbors(
             index=i,
             feature_array=feature_array,
             id_array=id_array,
@@ -244,7 +246,7 @@ def create_knn_graph(data_list, k, threshold=0.2, compute_method="top_k"):
             compute_method=compute_method,
         )
         data_list[i]["neighbors"] = neighbors_array
-        #data_list[i]["weights"] = normalized_k_dis_array
+        data_list[i]["distances"] = distance_array
 
     return data_list
 
@@ -278,7 +280,8 @@ def compute_neighbors(
         sorted_pairs = pairs[pairs[:, 0].argsort()]
         top_k_pairs = sorted_pairs[1: k+1]
         neighbors_array = top_k_pairs[:, 1]
-        return neighbors_array
+        distance_array = top_k_pairs[:, 0]
+        return neighbors_array, distance_array
     elif compute_method == "threshold":
         tar_feature = np.expand_dims(feature_array[index], axis=0)
         dist_array = np.power((feature_array - tar_feature), 2)
@@ -392,6 +395,7 @@ class PlottingManager:
         plot_dbscan_graph(
             root_path=self.root_path,
             csv_path=self.csv_path,
+            k=self.k,
             graph_type=self.graph_type,
             output_path=self.output_path,
             threshold=self.threshold,
