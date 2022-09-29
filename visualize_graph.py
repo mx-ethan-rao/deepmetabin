@@ -10,12 +10,11 @@
 
 import igraph
 import zarr
-import time
-import torch
 import csv
 import numpy as np
 from tqdm import trange, tqdm
 from absl import app, flags
+from sklearn.cluster import DBSCAN
 from src.utils.plot import update_graph_labels
 from src.utils.util import summary_bin_list_from_csv
 
@@ -47,6 +46,41 @@ def write_contig_csv(
                     writer.writerow(["NODE_{}".format(contig_id), i])
 
 
+def create_matrix(data_list):
+    node_num = len(data_list)
+    pre_compute_matrix = np.zeros((node_num, node_num))
+    for i in range(node_num):
+        neighbors_array = data_list[i]["neighbors"]
+        neighbors_num = neighbors_array.shape[0]
+        for j in range(neighbors_num):
+            pre_compute_matrix[i][neighbors_array[j]] = 1
+    return pre_compute_matrix
+
+
+def plot_dbscan_graph(
+    root_path,
+    csv_path,
+    k,
+    graph_type,
+    output_path="/home/eddie/cami1-low-log",
+    threshold=0.2,
+    compute_method="top_k",
+):
+    data_list, contig_id_list = load_dataset(root_path)
+    dbscan = DBSCAN(
+        eps=1,
+        metric="precomputed",
+    )
+    data_list = create_knn_graph(
+        data_list,
+        k,
+        threshold,
+        compute_method,
+    )
+    pre_compute_matrix = create_matrix(data_list=data_list)
+    cluster_result = dbscan.fit(pre_compute_matrix)
+
+
 def plot_graph(
     root_path,
     csv_path,
@@ -68,22 +102,21 @@ def plot_graph(
     plotting_graph_size = 1000
     plotting_contig_list = contig_id_list[:plotting_graph_size]
     bin_list = summary_bin_list_from_csv(csv_path)
-    write_contig_csv(
-        bin_list=bin_list,
-        plot_contig_list=plotting_contig_list,
-    )
-    """
-    write_csv(
-        list1=bin_list[23],
-        list2=bin_list[28],
-    )
-    """
+    # write_contig_csv(
+    #     bin_list=bin_list,
+    #     plot_contig_list=plotting_contig_list,
+    # )
+    # write_csv(
+    #     list1=bin_list[23],
+    #     list2=bin_list[28],
+    # )
     knn_graph = construct_knn_graph(
         data_list=data_list,
         plotting_graph_size=plotting_graph_size,
         plotting_contig_list=plotting_contig_list,
         k=k,
     )
+
     plot_knn_graph(
         graph=knn_graph,
         log_path=output_path,
@@ -355,12 +388,23 @@ class PlottingManager:
             compute_method=self.compute_method,
         )
 
+    def plot_dbscan_knn(self):
+        plot_dbscan_graph(
+            root_path=self.root_path,
+            csv_path=self.csv_path,
+            graph_type=self.graph_type,
+            output_path=self.output_path,
+            threshold=self.threshold,
+            compute_method=self.compute_method,
+        )
+
 
 def main(argv=None):
     plotting_manager = PlottingManager(
         **FLAGS.flag_values_dict()
     )
-    plotting_manager.plot()
+    # plotting_manager.plot()
+    plotting_manager.plot_dbscan_knn()
 
 
 if __name__ == "__main__":
