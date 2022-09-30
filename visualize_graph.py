@@ -15,6 +15,7 @@ import numpy as np
 from tqdm import trange, tqdm
 from absl import app, flags
 from sklearn.cluster import DBSCAN
+from scipy import sparse
 from src.utils.plot import update_graph_labels
 from src.utils.util import summary_bin_list_from_csv
 
@@ -46,15 +47,26 @@ def write_contig_csv(
                     writer.writerow(["NODE_{}".format(contig_id), i])
 
 
-def create_matrix(data_list):
+def create_matrix(data_list, option="sparse"):
     node_num = len(data_list)
-    pre_compute_matrix = np.full((node_num, node_num), 100)
-    for i in range(node_num):
-        neighbors_array = data_list[i]["neighbors"]
-        distances_array = data_list[i]["distances"]
-        neighbors_num = neighbors_array.shape[0]
-        for j in range(neighbors_num):
-            pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
+    if option == "normal":
+        pre_compute_matrix = np.full((node_num, node_num), 100.0, dtype=float)
+        for i in range(node_num):
+            neighbors_array = data_list[i]["neighbors"]
+            distances_array = data_list[i]["distances"]
+            neighbors_num = neighbors_array.shape[0]
+            for j in range(neighbors_num):
+                pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
+    elif option == "sparse":
+        pre_compute_matrix = np.zeros((node_num, node_num), dtype=float)
+        for i in range(node_num):
+            neighbors_array = data_list[i]["neighbors"]
+            distances_array = data_list[i]["distances"]
+            neighbors_num = neighbors_array.shape[0]
+            for j in range(neighbors_num):
+                pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
+        pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
+    print("test up the matrix.")
     return pre_compute_matrix
 
 
@@ -63,6 +75,7 @@ def summary_bin_list_from_array(
     labels_array,
 ):
     contig_num = labels_array.shape[0]
+    labels_array = labels_array.tolist()
     cluster_list = []
     for i in range(contig_num):
         if labels_array[i] in cluster_list:
@@ -78,7 +91,7 @@ def summary_bin_list_from_array(
         for index, cluster in enumerate(cluster_list):
             if cluster_id == cluster:
                 bin_list[index].append(contig_id)
-
+    print("test for result of bin list number: {}".format(len(bin_list)))
     return bin_list
 
 
@@ -93,8 +106,9 @@ def plot_dbscan_graph(
 ):
     data_list, contig_id_list = load_dataset(root_path)
     dbscan = DBSCAN(
-        eps=1,
+        eps=0.5,
         metric="precomputed",
+        min_samples=10,
     )
     data_list = create_knn_graph(
         data_list,
