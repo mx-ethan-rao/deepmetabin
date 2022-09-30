@@ -47,7 +47,7 @@ def write_contig_csv(
                     writer.writerow(["NODE_{}".format(contig_id), i])
 
 
-def create_matrix(data_list, option="sparse"):
+def create_matrix(data_list, option="normal"):
     node_num = len(data_list)
     if option == "normal":
         pre_compute_matrix = np.full((node_num, node_num), 100.0, dtype=float)
@@ -57,6 +57,8 @@ def create_matrix(data_list, option="sparse"):
             neighbors_num = neighbors_array.shape[0]
             for j in range(neighbors_num):
                 pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
+                pre_compute_matrix[int(neighbors_array[j])][i] = distances_array[j]
+            pre_compute_matrix[i][i] = 0
     elif option == "sparse":
         pre_compute_matrix = np.zeros((node_num, node_num), dtype=float)
         for i in range(node_num):
@@ -65,6 +67,7 @@ def create_matrix(data_list, option="sparse"):
             neighbors_num = neighbors_array.shape[0]
             for j in range(neighbors_num):
                 pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
+                pre_compute_matrix[int(neighbors_array[j])][i] = distances_array[j]
         pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
     print("test up the matrix.")
     return pre_compute_matrix
@@ -106,21 +109,32 @@ def plot_dbscan_graph(
 ):
     data_list, contig_id_list = load_dataset(root_path)
     dbscan = DBSCAN(
-        eps=0.5,
+        eps=1,
         metric="precomputed",
-        min_samples=10,
+        min_samples=3,
     )
+    """
+    dbscan = DBSCAN(
+        eps=1.5,
+    )
+    """
     data_list = create_knn_graph(
         data_list,
         k,
         threshold,
         compute_method,
     )
+    
+    feature_list = []
+    for i in range(len(data_list)):
+        feature_list.append(data_list[i]["feature"])
+    feature_array = np.array(feature_list)
 
     plotting_graph_size = 1000
     plotting_contig_list = contig_id_list[:plotting_graph_size]
     pre_compute_matrix = create_matrix(data_list=data_list)
     cluster_result = dbscan.fit(pre_compute_matrix)
+    #cluster_result = dbscan.fit(feature_array)
     labels_array = cluster_result.labels_
     bin_list = summary_bin_list_from_array(
         data_list=data_list,
