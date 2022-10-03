@@ -47,7 +47,7 @@ def write_contig_csv(
                     writer.writerow(["NODE_{}".format(contig_id), i])
 
 
-def create_matrix(data_list, option="normal"):
+def create_matrix(data_list, contig_list, option="normal"):
     node_num = len(data_list)
     if option == "normal":
         pre_compute_matrix = np.full((node_num, node_num), 100.0, dtype=float)
@@ -56,8 +56,13 @@ def create_matrix(data_list, option="normal"):
             distances_array = data_list[i]["distances"]
             neighbors_num = neighbors_array.shape[0]
             for j in range(neighbors_num):
-                pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
-                pre_compute_matrix[int(neighbors_array[j])][i] = distances_array[j]
+                neighbors_id = int(neighbors_array[j])
+                neighbors_index = get_index_by_id_from_list(
+                    neighbors_id,
+                    contig_list,
+                )
+                pre_compute_matrix[i][neighbors_index] = distances_array[j]
+                pre_compute_matrix[neighbors_index][i] = distances_array[j]
             pre_compute_matrix[i][i] = 0
     elif option == "sparse":
         pre_compute_matrix = np.zeros((node_num, node_num), dtype=float)
@@ -66,8 +71,13 @@ def create_matrix(data_list, option="normal"):
             distances_array = data_list[i]["distances"]
             neighbors_num = neighbors_array.shape[0]
             for j in range(neighbors_num):
-                pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
-                pre_compute_matrix[int(neighbors_array[j])][i] = distances_array[j]
+                neighbors_id = int(neighbors_array[j])
+                neighbors_index = get_index_by_id_from_list(
+                    neighbors_id,
+                    contig_list
+                )
+                pre_compute_matrix[i][neighbors_index] = distances_array[j]
+                pre_compute_matrix[neighbors_index][i] = distances_array[j]
         pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
     print("test up the matrix.")
     return pre_compute_matrix
@@ -132,7 +142,10 @@ def plot_dbscan_graph(
 
     plotting_graph_size = 1000
     plotting_contig_list = contig_id_list[:plotting_graph_size]
-    pre_compute_matrix = create_matrix(data_list=data_list)
+    pre_compute_matrix = create_matrix(
+        data_list=data_list,
+        contig_list=contig_id_list,
+    )
     cluster_result = dbscan.fit(pre_compute_matrix)
     #cluster_result = dbscan.fit(feature_array)
     labels_array = cluster_result.labels_
