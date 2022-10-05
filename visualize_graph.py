@@ -9,6 +9,7 @@
 # - [ ]  use bin list paired with color dict to visualize the knn graph.
 
 import igraph
+from torch import float64
 import zarr
 import csv
 import numpy as np
@@ -18,6 +19,7 @@ from sklearn.cluster import DBSCAN
 from scipy import sparse
 from src.utils.plot import update_graph_labels
 from src.utils.util import summary_bin_list_from_csv
+from mingxing.test_label_propagation import lbp
 
 
 def write_csv(
@@ -47,18 +49,23 @@ def write_contig_csv(
                     writer.writerow(["NODE_{}".format(contig_id), i])
 
 
-def create_matrix(data_list, option="normal"):
+def create_matrix(data_list, contig_list, option="normal"):
     node_num = len(data_list)
     if option == "normal":
-        pre_compute_matrix = np.full((node_num, node_num), 100.0, dtype=float)
+        pre_compute_matrix = np.full((node_num, node_num), 1000.0, dtype=float)
         for i in range(node_num):
             neighbors_array = data_list[i]["neighbors"]
             distances_array = data_list[i]["distances"]
             neighbors_num = neighbors_array.shape[0]
             for j in range(neighbors_num):
-                pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
-                pre_compute_matrix[int(neighbors_array[j])][i] = distances_array[j]
-            pre_compute_matrix[i][i] = 0
+                neighbors_id = int(neighbors_array[j])
+                neighbors_index = get_index_by_id_from_list(
+                    neighbors_id,
+                    contig_list,
+                )
+                pre_compute_matrix[i][neighbors_index] = distances_array[j]
+                pre_compute_matrix[neighbors_index][i] = distances_array[j]
+            pre_compute_matrix[i][i] = 0.0
     elif option == "sparse":
         pre_compute_matrix = np.zeros((node_num, node_num), dtype=float)
         for i in range(node_num):
@@ -66,8 +73,13 @@ def create_matrix(data_list, option="normal"):
             distances_array = data_list[i]["distances"]
             neighbors_num = neighbors_array.shape[0]
             for j in range(neighbors_num):
-                pre_compute_matrix[i][int(neighbors_array[j])] = distances_array[j]
-                pre_compute_matrix[int(neighbors_array[j])][i] = distances_array[j]
+                neighbors_id = int(neighbors_array[j])
+                neighbors_index = get_index_by_id_from_list(
+                    neighbors_id,
+                    contig_list
+                )
+                pre_compute_matrix[i][neighbors_index] = distances_array[j]
+                pre_compute_matrix[neighbors_index][i] = distances_array[j]
         pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
     print("test up the matrix.")
     return pre_compute_matrix
@@ -103,15 +115,15 @@ def plot_dbscan_graph(
     csv_path,
     k,
     graph_type,
-    output_path="/home/eddie/cami1-low-log",
+    output_path="/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/graphs",
     threshold=0.2,
     compute_method="top_k",
 ):
     data_list, contig_id_list = load_dataset(root_path)
     dbscan = DBSCAN(
-        eps=1,
+        eps=1.65,
         metric="precomputed",
-        min_samples=3,
+        min_samples=2,
     )
     """
     dbscan = DBSCAN(
@@ -132,10 +144,16 @@ def plot_dbscan_graph(
 
     plotting_graph_size = 1000
     plotting_contig_list = contig_id_list[:plotting_graph_size]
-    pre_compute_matrix = create_matrix(data_list=data_list)
+    pre_compute_matrix = create_matrix(
+        data_list=data_list,
+        contig_list=contig_id_list,
+    )
     cluster_result = dbscan.fit(pre_compute_matrix)
     #cluster_result = dbscan.fit(feature_array)
     labels_array = cluster_result.labels_
+    labels_array = label_propagation(labels_array, pre_compute_matrix)
+
+    data_list, labels_array = remove_ambiguous_label(data_list, labels_array, contig_id_list)
     bin_list = summary_bin_list_from_array(
         data_list=data_list,
         labels_array=labels_array,
@@ -161,7 +179,7 @@ def plot_graph(
     csv_path,
     k,
     graph_type,
-    output_path="/home/eddie/cami1-low-log",
+    output_path="/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/graphs",
     threshold=0.2,
     compute_method="top_k",
 ):
@@ -354,7 +372,8 @@ def compute_neighbors(
         top_k_pairs = sorted_pairs[1: k+1]
         neighbors_array = top_k_pairs[:, 1]
         distance_array = top_k_pairs[:, 0]
-        return neighbors_array, distance_array
+        valid_num = np.sum(distance_array < 20)
+        return neighbors_array[:valid_num], distance_array[:valid_num]
     elif compute_method == "threshold":
         tar_feature = np.expand_dims(feature_array[index], axis=0)
         dist_array = np.power((feature_array - tar_feature), 2)
@@ -432,6 +451,57 @@ def plot_knn_graph(graph, log_path, graph_type, plotting_contig_list, bin_list):
     visual_style["bbox"] = (1200, 1200)
     igraph.plot(graph, path, **visual_style)
 
+def label_propagation(labels_array, pre_compute_matrix):
+    label_prop_model = lbp(n_jobs=10)
+    pre_compute_matrix = np.where(pre_compute_matrix == 1000.0, 0.0, pre_compute_matrix)
+    pre_compute_matrix = np.where(pre_compute_matrix != 0.0, 1.0, pre_compute_matrix)
+    # np.fill_diagonal(pre_compute_matrix, 1.0)
+    for idx, elem in enumerate(zip(labels_array, pre_compute_matrix)):
+        label, row = elem
+        if label != -1:
+            row = np.where(row != 0.0, 0.0, row)
+            row[idx] = 1.0
+            pre_compute_matrix[idx] = row
+    divide = np.sum(pre_compute_matrix, axis=1)
+    divide = np.where(divide == 0.0, 1e-18, divide)
+    divide = np.expand_dims(divide, 1)
+    pre_compute_matrix = pre_compute_matrix / divide.repeat(pre_compute_matrix.shape[0], 1)
+    
+    labels_array = label_prop_model.fit(pre_compute_matrix, labels_array)
+    return labels_array
+
+
+def remove_ambiguous_label(knn_graph, labels_array, contig_id_list):
+    node_num = len(knn_graph)
+    prev_label_array = np.copy(labels_array)
+    unlabeled = set()
+    for i in range(node_num):
+        neighbors_array = knn_graph[i]["neighbors"]
+        neighbors_num = neighbors_array.shape[0]
+        num_diff_bins = set()
+        for j in range(neighbors_num):
+            neighbors_id = int(neighbors_array[j])
+            neighbors_index = get_index_by_id_from_list(
+                neighbors_id,
+                contig_id_list,
+            )
+            num_diff_bins.add(prev_label_array[neighbors_index])
+        if len(num_diff_bins) > 1 or prev_label_array[i] == 0:
+            # directly delete the adge
+            knn_graph[i]["neighbors"] = np.array([])
+            knn_graph[i]["distances"] = np.array([])
+            labels_array[i] = 0
+            unlabeled.add(int(knn_graph[i]['id']))
+    # reversely delete the edge
+    for i in range(node_num):
+        delete_idx = []
+        for idx, neighbor in enumerate(knn_graph[i]["neighbors"]):
+            if int(neighbor) in unlabeled:
+                delete_idx.append(idx)
+        knn_graph[i]["neighbors"] = np.delete(knn_graph[i]["neighbors"], delete_idx)
+        knn_graph[i]["distances"] = np.delete(knn_graph[i]["distances"], delete_idx)
+    return knn_graph, labels_array
+
 
 class PlottingManager:
     def __init__(
@@ -487,11 +557,11 @@ def main(argv=None):
 if __name__ == "__main__":
     FLAGS = flags.FLAGS
 
-    flags.DEFINE_string("root_path", "", "")
-    flags.DEFINE_string("csv_path", "", "")
-    flags.DEFINE_string("graph_type", "", "")
+    flags.DEFINE_string("root_path", "/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/cami_low.zarr", "")
+    flags.DEFINE_string("csv_path", "/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/metadecoder/nc_result.csv", "")
+    flags.DEFINE_string("graph_type", "test_remove_minsample2", "")
     flags.DEFINE_integer("k", 3, "")
-    flags.DEFINE_string("output_path", "", "")
+    flags.DEFINE_string("output_path", "/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/graphs", "")
     flags.DEFINE_float("threshold", 0.2, "")
     flags.DEFINE_string("compute_method", "top_k", "")
     """
