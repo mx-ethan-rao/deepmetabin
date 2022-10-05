@@ -217,7 +217,6 @@ def visualize_graph(bin_list, num_contigs, save_path):
     node_label_list = []
     node_weights_list = []
     node_embedding_list = []
-    edge_list = []
 
     for bin_id, bin in enumerate(bin_list):
         for contig in bin:
@@ -233,20 +232,16 @@ def visualize_graph(bin_list, num_contigs, save_path):
         tar_feature = np.expand_dims(embedding_array[i], axis=0)
         dist_array = np.power((embedding_array - tar_feature), 2)
         dist_sum_array = np.sum(dist_array, axis=1).reshape((embedding_array.shape[0], 1))
-
-        for j in range(i + 1, len(node_embedding_list)):
-            edge_list.append((i, j))
-            node_weights_list.append(dist_sum_array[j])
-
-    graph.add_edges(edge_list)
-    #layout = graph.layout_fruchterman_reingold()
+        node_weights_list.extend(dist_sum_array[i] for i in range(embedding_array.shape[0]))
+    
+    layout = graph.layout_fruchterman_reingold()
     graph.vs["color"] = node_colour_list
     graph.vs["label"] = node_label_list
     graph.es["label"] = node_weights_list
     visual_style = {}
-    #visual_style["layout"] = layout
+    visual_style["layout"] = layout
     visual_style["vertex_size"] = 10
-    visual_style["bbox"] = (1200, 1200)
+    visual_style["bbox"] = (800, 800)
     igraph.plot(graph, save_path, **visual_style)
 
 
@@ -258,11 +253,11 @@ if __name__ == "__main__":
                         help='Checkm result for vamb')
     parser.add_argument('--vamb_conigname', type=str, default='/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/vamb_2000/vamb_out/contignames.npz', 
                         help='Checkm result for vamb')
-    parser.add_argument('--deepmetabin_result', type=str, default='/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/deepmetabin/vae/vamb_updated_result.csv', 
+    parser.add_argument('--deepmetabin_result', type=str, default='/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/deepmetabin/cami1-csv-metadecoder-refine/latent_epoch_600.0_result.csv', 
                         help='Checkm result for deepmetabin')
-    parser.add_argument('--deepmetabin_embedding', type=str, default='/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/deepmetabin/vae/latent_updated.npy', 
+    parser.add_argument('--deepmetabin_embedding', type=str, default='/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/deepmetabin/cami1-csv-metadecoder-refine/latent_epoch_600.0.npy', 
                         help='Checkm result for deepmetabin')
-    parser.add_argument('--deepmetabin_conigname', type=str, default='/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/deepmetabin/vae/id.npy', 
+    parser.add_argument('--deepmetabin_conigname', type=str, default='/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/deepmetabin/cami1-csv-metadecoder-refine/id.npy', 
                         help='Checkm result for deepmetabin')
 
     parser.add_argument('--num_contigs', type=int, default=10, 
@@ -320,15 +315,18 @@ if __name__ == "__main__":
     deepmetabin_result = defaultdict(list)
     with open(args.deepmetabin_result) as f:
         for l in f.readlines():
-            items = l.split(',')
+            items = l.split()
+            temp = items[0]
+            items[0] = items[1]
+            items[1] = temp
             if len(items) == 3:
                 continue
             if int(items[0].split('_')[1].strip()) <= args.num_contigs:
                 deepmetabin_result[int(items[1])].append({"contig_id": items[0], "contig_embedding": deepmetabin_res[items[0]]})
     deepmetabin_result = dict(deepmetabin_result)
 
-    visualize_graph(vamb_result.values(), args.num_contigs, '/home/comp/cswcgao/binning/logging/vamb.png')
-    visualize_graph(deepmetabin_result.values(), args.num_contigs, '/home/comp/cswcgao/binning/logging/deepmetabin.png')
+    visualize_graph(vamb_result.values(), args.num_contigs, '/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/vamb.png')
+    visualize_graph(deepmetabin_result.values(), args.num_contigs, '/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/deepmetabin_2000.png')
 
 
 

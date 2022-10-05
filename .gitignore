@@ -146,3 +146,6 @@ logs/
 wandb/
 .env
 .autoenv
+graphs/
+data/
+cami_low.zarr/

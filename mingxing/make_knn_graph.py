@@ -12,7 +12,8 @@ import sys
 import os
 from cmath import isnan
 from torch.nn import functional as F
-from visualize_graph import plot_knn_graph
+# from visualize_graph import plot_knn_graph
+from sklearn import datasets
 
 
 def cal_similar(data,K, use_gpu=torch.cuda.is_available(), threshold=0.2):
@@ -24,7 +25,7 @@ def cal_similar(data,K, use_gpu=torch.cuda.is_available(), threshold=0.2):
     for idx in range(N):
         dis = torch.sum(torch.pow(data-data[idx,:],2),dim=1)
         sorted, ind = dis.sort()
-        K = torch.sum(sorted[1:K+1] < threshold)
+        # K = torch.sum(sorted[1:K+1] < threshold)
         similar_m.append(ind[1:K+1].view(1,K).cpu())
         weight_m.append(Gaussian_kernal(sorted[1:K+1]))
     # similar_m = torch.cat(similar_m,dim=0)
@@ -78,36 +79,39 @@ def zscore(array, axis=None, inplace=False):
         return (array - mean) / std
 
 
-tnfs = np.load('/tmp/local/zmzhang/DeepMetaBin/mingxing/DeepBin/data/CAMI1_L/vamb/tnf.npz')
-abundances = np.load('/tmp/local/zmzhang/DeepMetaBin/mingxing/DeepBin/data/CAMI1_L/vamb/rpkm.npz')
-contigs = np.load('/tmp/local/zmzhang/DeepMetaBin/mingxing/DeepBin/data/CAMI1_L/vamb/contignames.npz')
+# tnfs = np.load('/tmp/local/zmzhang/DeepMetaBin/mingxing/DeepBin/data/CAMI1_L/vamb/tnf.npz')
+# abundances = np.load('/tmp/local/zmzhang/DeepMetaBin/mingxing/DeepBin/data/CAMI1_L/vamb/rpkm.npz')
+# contigs = np.load('/tmp/local/zmzhang/DeepMetaBin/mingxing/DeepBin/data/CAMI1_L/vamb/contignames.npz')
 
-tnfs = tnfs['arr_0']
-abundances = abundances['arr_0']
-
-
-
-zscore(tnfs, axis=0, inplace=True)
-zscore(abundances, axis=0, inplace=True)
-# -----------------------------
-input_data = np.concatenate([tnfs, abundances], axis=1)
+# tnfs = tnfs['arr_0']
+# abundances = abundances['arr_0']
 
 
 
-contigs = contigs['arr_0']
-
-init_data = []
-
-for idx, val in enumerate(contigs):
-    temp = val.split('_')
-    if int(temp[3]) >= 1000:
-        data = torch.tensor(input_data[idx], dtype=torch.float32)
-        init_data.append(data)
+# zscore(tnfs, axis=0, inplace=True)
+# zscore(abundances, axis=0, inplace=True)
+# # -----------------------------
+# input_data = np.concatenate([tnfs, abundances], axis=1)
 
 
-init_data = torch.stack(init_data, dim=0)
-print(f'init data shape: {init_data.shape}')
-similar_m, weight_m = cal_similar(init_data, K=5)
+
+# contigs = contigs['arr_0']
+
+# init_data = []
+
+# for idx, val in enumerate(contigs):
+#     temp = val.split('_')
+#     if int(temp[3]) >= 1000:
+#         data = torch.tensor(input_data[idx], dtype=torch.float32)
+#         init_data.append(data)
+
+
+# init_data = torch.stack(init_data, dim=0)
+# print(f'init data shape: {init_data.shape}')
+
+iris = datasets.load_iris()
+similar_m, weight_m = cal_similar(torch.from_numpy(iris.data), K=7)
+print(1)
 
 
 # torch.save(train_set, '../data/CAMI1_L/training_set.pkl')
