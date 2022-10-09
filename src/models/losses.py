@@ -44,6 +44,14 @@ class LossFunctions:
       return loss.sum(-1).mean()
 
 
+    def reconstruction_loss_by_dim(self, real, predicts, mask, weights):
+        loss = (real - predicts).pow(2)
+        loss[:, :103] = loss[:, :103] * 0.15 / 103
+        loss[:, -1] = loss[:, -1] * 0.85
+        loss = loss.sum(-1) * mask * weights
+        return loss.mean()
+
+
     def log_normal(self, x, mu, var):
       """Logarithm of normal distribution with mean=mu and variance=var
          log(x|μ, σ^2) = loss = -0.5 * Σ log(2π) + log(σ^2) + ((x - μ)/σ)^2

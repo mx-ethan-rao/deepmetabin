@@ -281,6 +281,8 @@ class KNNGraphDataset(Dataset):
         for i in range(node_num):
             neighbors_array = data_list[i]["neighbors"]
             weights_array = data_list[i]["distances"]
+            del data_list[i]["neighbors"]
+            del data_list[i]["distances"]
             neighbors_num = neighbors_array.shape[0]
             neighbor_feature_list = []
             neighbor_weight_list = []
@@ -300,7 +302,7 @@ class KNNGraphDataset(Dataset):
                     for j in range(feature_array.shape[0]):
                         if int(id_array[j]) == neighbor_id:
                             neighbor_feature_list.append(feature_array[j])
-                            neighbor_weight_list.append(weights_array[j])
+                    neighbor_weight_list.append(weights_array[index])
                 neighbor_feature_list.append(neighbor_feature_list[0])
                 neighbor_weight_list.append(neighbor_weight_list[0])
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
@@ -312,7 +314,7 @@ class KNNGraphDataset(Dataset):
                     for j in range(feature_array.shape[0]):
                         if int(id_array[j]) == neighbor_id:
                             neighbor_feature_list.append(feature_array[j])
-                            neighbor_weight_list.append(weights_array[j])
+                    neighbor_weight_list.append(weights_array[index])
                 neighbor_feature_list.append(neighbor_feature_list[0])
                 neighbor_feature_list.append(neighbor_feature_list[0])
                 neighbor_weight_list.append(neighbor_weight_list[0])
@@ -323,15 +325,18 @@ class KNNGraphDataset(Dataset):
             else:
                 for index in range(3):
                     neighbor_feature_list.append(feature_array[0])
-                    neighbor_weight_list.append(np.array([0]))
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
                 neighbors_feature_mask = np.array([0, 0, 0])
-                neighbors_weight = np.stack(neighbor_weight_list, axis=0)
+                neighbors_weight = np.array([0, 0, 0])
 
             data_list[i]["neighbors_feature"] = neighbors_feature
             data_list[i]["neighbors_feature_mask"] = neighbors_feature_mask
             data_list[i]["neighbors_weight"] = neighbors_weight
-        
+            #print("{} shape of neighbor feature: {}".format(i, neighbors_feature.shape))
+            #print("{} shape of neighbor weight: {}".format(i, neighbors_weight.shape))
+            #print("{} shape of neighbor mask: {}".format(i, neighbors_feature_mask.shape))
+            if neighbors_feature_mask.shape[0] != 3:
+                print(i)
         return data_list
 
     @staticmethod
