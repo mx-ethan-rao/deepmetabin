@@ -10,6 +10,7 @@ from scipy import sparse
 from src.utils.plot import update_graph_labels, COLOUR_DICT
 from src.utils.metric import Metric
 from sklearn.manifold import TSNE
+from mingxing.test_label_propagation import lbp
 
 
 class Gaussian:
@@ -791,3 +792,55 @@ def create_matrix(data_list, contig_list, option="normal"):
                 pre_compute_matrix[neighbors_index][i] = distances_array[j]
         pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
     return pre_compute_matrix
+
+
+def label_propagation(labels_array, pre_compute_matrix):
+    label_prop_model = lbp(n_jobs=10)
+    pre_compute_matrix = np.where(pre_compute_matrix == 1000.0, 0.0, pre_compute_matrix)
+    pre_compute_matrix = np.where(pre_compute_matrix != 0.0, 1.0, pre_compute_matrix)
+    # np.fill_diagonal(pre_compute_matrix, 1.0)
+    for idx, elem in enumerate(zip(labels_array, pre_compute_matrix)):
+        label, row = elem
+        if label != -1:
+            row = np.where(row != 0.0, 0.0, row)
+            row[idx] = 1.0
+            pre_compute_matrix[idx] = row
+    divide = np.sum(pre_compute_matrix, axis=1)
+    divide = np.where(divide == 0.0, 1e-18, divide)
+    divide = np.expand_dims(divide, 1)
+    pre_compute_matrix = pre_compute_matrix / divide.repeat(pre_compute_matrix.shape[0], 1)
+    
+    labels_array = label_prop_model.fit(pre_compute_matrix, labels_array)
+    return labels_array
+
+
+def remove_ambiguous_label(knn_graph, labels_array, contig_id_list):
+    node_num = len(knn_graph)
+    prev_label_array = np.copy(labels_array)
+    unlabeled = set()
+    for i in range(node_num):
+        neighbors_array = knn_graph[i]["neighbors"]
+        neighbors_num = neighbors_array.shape[0]
+        num_diff_bins = set()
+        for j in range(neighbors_num):
+            neighbors_id = int(neighbors_array[j])
+            neighbors_index = get_index_by_id_from_list(
+                neighbors_id,
+                contig_id_list,
+            )
+            num_diff_bins.add(prev_label_array[neighbors_index])
+        if len(num_diff_bins) > 1 or prev_label_array[i] == 0:
+            # directly delete the adge
+            knn_graph[i]["neighbors"] = np.array([])
+            knn_graph[i]["distances"] = np.array([])
+            labels_array[i] = 0
+            unlabeled.add(int(knn_graph[i]['id']))
+    # reversely delete the edge
+    for i in range(node_num):
+        delete_idx = []
+        for idx, neighbor in enumerate(knn_graph[i]["neighbors"]):
+            if int(neighbor) in unlabeled:
+                delete_idx.append(idx)
+        knn_graph[i]["neighbors"] = np.delete(knn_graph[i]["neighbors"], delete_idx)
+        knn_graph[i]["distances"] = np.delete(knn_graph[i]["distances"], delete_idx)
+    return knn_graph, labels_array
