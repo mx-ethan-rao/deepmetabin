@@ -105,11 +105,9 @@ class DeepBinModel(pl.LightningModule):
         
     def training_step(self, batch, batch_idx):
         attributes = batch["origin_feature"]
-        origin_neighbor_attributes = batch["origin_neighbors_feature"].squeeze()
-        ag_neighbor_attributes = batch["ag_neighbors_feature"].squeeze()
-        #neighbor_mask = batch["neighbors_mask"].squeeze()
-        origin_weights = batch["origin_weights"].squeeze()
-        ag_weights = batch["ag_weights"].squeeze()
+        neighbor_attributes = batch["neighbors_feature"].squeeze()
+        neighbors_mask = batch["neighbors_feature_mask"].squeeze()
+        neighbors_weight = batch["neighbors_weight"].squeeze()
         out_net = self.network(attributes)
         loss_dict = self.unlabeled_loss(attributes, out_net)
 
@@ -122,25 +120,18 @@ class DeepBinModel(pl.LightningModule):
         self.log("train/gaussian_loss", gaussian_loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("train/categorical_loss", categorical_loss, on_step=False, on_epoch=True, prog_bar=False)
         
-        loss_rec_origin_neigh = 0
-        loss_rec_ag_neigh = 0
+        rec_neighbor_loss = 0
         for i in range(self.k):
-            origin_nei_feat = origin_neighbor_attributes[:, i]
-            origin_nei_weight = origin_weights[:, i]
-            ag_nei_feat = ag_neighbor_attributes[:, i]
-            ag_nei_weight = ag_weights[:, i]
-            
+            nei_feat = neighbor_attributes[:, i]
+            nei_mask = neighbors_mask[:, i]
+            nei_weight = neighbors_weight[:, i]
             # origin feature based neighbor reconstruction.
-            origin_rec_nei = self.network(origin_nei_feat)["x_rec"]
-            origin_rec_loss = self.losses.reconstruction_loss(attributes, origin_rec_nei)
-            loss_rec_origin_neigh += origin_rec_loss * origin_nei_weight
-            
-            # ag feature based neighbor reconstruction.
-            ag_rec_nei = self.network(ag_nei_feat)["x_rec"]
-            ag_rec_loss = self.losses.reconstruction_loss(attributes, ag_rec_nei)
-            loss_rec_ag_neigh += ag_rec_loss * ag_nei_weight
+            rec_nei = self.network(nei_feat)["x_rec"]
+            rec_loss = self.losses.reconstruction_loss(attributes, nei_feat)
+            loss_rec_neigh += rec_loss * nei_weight * nei_mask
 
-        loss_rec_neigh = (0.8*loss_rec_origin_neigh + 0.2*loss_rec_ag_neigh) / self.k
+        loss_rec_neigh = loss_rec_neigh / self.k
+        loss += loss_rec_neigh
         self.log("train/rec_neigh_loss", loss_rec_neigh, on_step=False, on_epoch=True, prog_bar=False)
         return {"loss": loss, "loss_rec_neighor": loss_rec_neigh}
     

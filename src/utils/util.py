@@ -6,6 +6,7 @@ import zarr
 import csv
 import matplotlib.pyplot as plt
 from tqdm import tqdm, trange
+from scipy import sparse
 from src.utils.plot import update_graph_labels, COLOUR_DICT
 from src.utils.metric import Metric
 from sklearn.manifold import TSNE
@@ -703,3 +704,90 @@ def visualize_graph(bin_list, contig_list, save_path):
     visual_style["vertex_size"] = 10
     visual_style["bbox"] = (800, 800)
     igraph.plot(graph, save_path, **visual_style)
+
+
+def compute_neighbors(
+        index,
+        feature_array,
+        id_array,
+        k,
+        threshold=0.2,
+        use_gpu=False,
+        compute_method="top_k",
+    ):
+    """Compute the neighbors of a single contig;
+    
+    Args:
+        index (int): contig index in data list.
+        feature_array (np.array): global feature array.
+        id_array (np.array): global id array.
+        compute_method (str): method to compute the knn neighbors, including "top_k" and "threshold".
+        k (int): top k neighbors from global.
+        threshold (float): threshold to filter the knn neighbors.
+        use_gpu (boolean): whether to use gpu.
+        compute_method (str): methods to compute the neighbors for each contig.
+    """
+    if compute_method == "top_k":
+        tar_feature = np.expand_dims(feature_array[index], axis=0)
+        dist_array = np.power((feature_array - tar_feature), 2)
+        dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
+        pairs = np.concatenate((dist_sum_array, id_array), axis=1) # track the id.
+        sorted_pairs = pairs[pairs[:, 0].argsort()]
+        top_k_pairs = sorted_pairs[1: k+1]
+        neighbors_array = top_k_pairs[:, 1]
+        distance_array = top_k_pairs[:, 0]
+        valid_num = np.sum(distance_array < 20)
+        return neighbors_array[:valid_num], distance_array[:valid_num]
+    elif compute_method == "threshold":
+        tar_feature = np.expand_dims(feature_array[index], axis=0)
+        dist_array = np.power((feature_array - tar_feature), 2)
+        dist_sum_array = np.sum(dist_array, axis=1).reshape((feature_array.shape[0], 1))
+        pairs = np.concatenate((dist_sum_array, id_array), axis=1)
+        sorted_pairs = pairs[pairs[:, 0].argsort()]
+        mask = sorted_pairs[:, 0] < threshold
+        mask = mask.tolist()
+        neighbors_list = []
+        for i in range(feature_array.shape[0]):
+            if i == 0:
+                continue
+            if mask[i] is True:
+                neighbors_list.append(sorted_pairs[i, 1])
+        neighbors_array = np.array(neighbors_list)
+        return neighbors_array
+    else:
+        raise NotImplementedError("Only support top_k and threshold method currently.")
+
+
+def create_matrix(data_list, contig_list, option="normal"):
+    node_num = len(data_list)
+    if option == "normal":
+        pre_compute_matrix = np.full((node_num, node_num), 1000.0, dtype=float)
+        for i in range(node_num):
+            neighbors_array = data_list[i]["neighbors"]
+            distances_array = data_list[i]["distances"]
+            neighbors_num = neighbors_array.shape[0]
+            for j in range(neighbors_num):
+                neighbors_id = int(neighbors_array[j])
+                neighbors_index = get_index_by_id_from_list(
+                    neighbors_id,
+                    contig_list,
+                )
+                pre_compute_matrix[i][neighbors_index] = distances_array[j]
+                pre_compute_matrix[neighbors_index][i] = distances_array[j]
+            pre_compute_matrix[i][i] = 0.0
+    elif option == "sparse":
+        pre_compute_matrix = np.zeros((node_num, node_num), dtype=float)
+        for i in range(node_num):
+            neighbors_array = data_list[i]["neighbors"]
+            distances_array = data_list[i]["distances"]
+            neighbors_num = neighbors_array.shape[0]
+            for j in range(neighbors_num):
+                neighbors_id = int(neighbors_array[j])
+                neighbors_index = get_index_by_id_from_list(
+                    neighbors_id,
+                    contig_list
+                )
+                pre_compute_matrix[i][neighbors_index] = distances_array[j]
+                pre_compute_matrix[neighbors_index][i] = distances_array[j]
+        pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
+    return pre_compute_matrix

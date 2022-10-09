@@ -81,7 +81,6 @@ def create_matrix(data_list, contig_list, option="normal"):
                 pre_compute_matrix[i][neighbors_index] = distances_array[j]
                 pre_compute_matrix[neighbors_index][i] = distances_array[j]
         pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
-    print("test up the matrix.")
     return pre_compute_matrix
 
 
@@ -173,6 +172,7 @@ def plot_dbscan_graph(
         plotting_contig_list=plotting_contig_list,
         bin_list=bin_list,
     )
+
 
 def plot_graph(
     root_path,
@@ -450,6 +450,7 @@ def plot_knn_graph(graph, log_path, graph_type, plotting_contig_list, bin_list):
     visual_style["vertex_size"] = 10
     visual_style["bbox"] = (1200, 1200)
     igraph.plot(graph, path, **visual_style)
+
 
 def label_propagation(labels_array, pre_compute_matrix):
     label_prop_model = lbp(n_jobs=10)
