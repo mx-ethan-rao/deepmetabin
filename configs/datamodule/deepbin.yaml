@@ -1,4 +1,4 @@
-_target_: src.datamodules.gmvae_datamodule.GMVAEDataModule
+_target_: src.datamodules.deepmetabin_datamodule.DeepMetaBinDataModule
 
 zarr_dataset_path: "/home/eddie/cami1-low-long.zarr"
 use_neighbor_feature: True

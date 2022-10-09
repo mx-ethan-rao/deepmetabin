@@ -1,6 +1,6 @@
 import torch
 import pytorch_lightning as pl
-from src.datamodules.datasets.graph_dataset import AgFeatGraphDataset
+from src.datamodules.datasets.graph_dataset import KNNGraphDataset
 from torch.utils.data import DataLoader, random_split
 
 
@@ -8,8 +8,6 @@ class DeepMetaBinDataModule(pl.LightningDataModule):
     def __init__(
         self,
         zarr_dataset_path,
-        ag_feature_path,
-        id_mask_path,
         train_val_test_split,
         batch_size=1,
         sigma=1,
@@ -30,8 +28,6 @@ class DeepMetaBinDataModule(pl.LightningDataModule):
         """
         super().__init__()
         self.zarr_dataset_path = zarr_dataset_path
-        self.ag_feature_path = ag_feature_path
-        self.id_mask_path = id_mask_path
         self.train_val_test_split = train_val_test_split
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -44,10 +40,8 @@ class DeepMetaBinDataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage=None):
-        dataset = AgFeatGraphDataset(
+        dataset = KNNGraphDataset(
             zarr_dataset_path=self.zarr_dataset_path,
-            ag_feature_path=self.ag_feature_path,
-            id_mask_path=self.id_mask_path,
             k=self.k,
             sigma=self.sigma,
             use_neighbor_feature=self.use_neighbor_feature,
