@@ -75,8 +75,9 @@ class DeepBinModel(pl.LightningModule):
         self.plot_graph_size = plot_graph_size
         self.log_path = log_path
         self.use_gmm = use_gmm
-        self.gmm = GaussianMixture(n_components=num_classes) if self.use_gmm else None
-        
+        self.gmm = GaussianMixture(n_components=25) if self.use_gmm else None
+        self.count = 0
+
     def unlabeled_loss(self, data, out_net):
         z, data_recon = out_net["gaussian"], out_net["x_rec"]
         logits, prob_cat = out_net["logits"], out_net["prob_cat"]
@@ -127,12 +128,13 @@ class DeepBinModel(pl.LightningModule):
             nei_weight = neighbors_weight[:, i]
             # origin feature based neighbor reconstruction.
             rec_nei = self.network(nei_feat)["x_rec"]
-            rec_loss = self.losses.reconstruction_loss_by_dim(attributes, nei_feat, nei_mask, nei_weight)
+            rec_loss = self.losses.reconstruction_loss_by_dim(attributes, rec_nei, nei_mask, nei_weight)
             loss_rec_neigh += rec_loss
 
         loss_rec_neigh = loss_rec_neigh / self.k
         loss += loss_rec_neigh
         self.log("train/rec_neigh_loss", loss_rec_neigh, on_step=False, on_epoch=True, prog_bar=False)
+        self.count += 1
         return {"loss": loss, "loss_rec_neighor": loss_rec_neigh}
     
     def test_step(self):
@@ -151,7 +153,7 @@ class DeepBinModel(pl.LightningModule):
             gd_bin_list=gd_bin_list,
             result_bin_list=result_bin_list,
             non_labeled_id_list=non_labeled_id_list,
-            unclassified=0
+            unclassified=0,
         )
 
         # plotting graph for visualization here.
@@ -177,7 +179,7 @@ class DeepBinModel(pl.LightningModule):
             gd_bin_list=gd_bin_list,
             result_bin_list=result_bin_list,
         )
-
+        """
         # add gmm to the latent vector, wrap a function here.
         if self.use_gmm:
             self.log_gmm(
@@ -192,7 +194,12 @@ class DeepBinModel(pl.LightningModule):
             latent=latent,
             log_path=self.log_path,
         )
-        """
+        
+        # Save latent.
+        latent_save_path = "/home/eddie/cami1-low-fixknn-log/latent_epoch_{}".format(self.count/10)
+        latent_feature = latent.numpy()
+        np.save(latent_save_path, latent_feature)
+
         self.log("val/acc", attributes.shape[0], on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/precision", precision, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/recall", recall, on_step=False, on_epoch=True, prog_bar=False)
@@ -203,8 +210,9 @@ class DeepBinModel(pl.LightningModule):
         wandb.log({"val/result_ag_subgraph": wandb.Image(result_ag_graph_path)})
         wandb.log({"val/ground_truth_knn_subgraph": wandb.Image(gd_knn_graph_path)})
         wandb.log({"val/result_knn_subgraph": wandb.Image(result_knn_graph_path)})
-        wandb.log({"val/tsne_figure": wandb.Image(result_tsne_figure_path)})
         """
+        wandb.log({"val/tsne_figure": wandb.Image(result_tsne_figure_path)})
+        
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=self.lr)
@@ -223,11 +231,12 @@ class DeepBinModel(pl.LightningModule):
         Returns:
             None
         """
-        gmm_gd_bin_list, gmm_result_bin_list, gmm_non_labeled_id_list = refine_gmm(
+        predicts, gmm_precision, gmm_recall, gmm_ARI, gmm_F1 = refine_gmm(
                 gmm=self.gmm,
                 batch=batch,
                 latent=latent,
         )
+        """
         _, gmm_result_ag_graph_path = log_ag_graph(
             plotting_graph_size=self.plot_graph_size,
             processed_zarr_dataset_path=self.processed_zarr_dataset_path,
@@ -253,9 +262,10 @@ class DeepBinModel(pl.LightningModule):
             non_labeled_id_list=gmm_non_labeled_id_list,
             unclassified=0
         )
+        """
         self.log("val/gmm_precision", gmm_precision, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_recall", gmm_recall, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_F1", gmm_F1, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_ARI", gmm_ARI, on_step=False, on_epoch=True, prog_bar=False)
-        wandb.log({"val/result_gmm_ag_subgraph": wandb.Image(gmm_result_ag_graph_path)})
-        wandb.log({"val/result_gmm_knn_subgraph": wandb.Image(gmm_result_knn_graph_path)})
+        #wandb.log({"val/result_gmm_ag_subgraph": wandb.Image(gmm_result_ag_graph_path)})
+        #wandb.log({"val/result_gmm_knn_subgraph": wandb.Image(gmm_result_knn_graph_path)})
