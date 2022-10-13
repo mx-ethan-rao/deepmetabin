@@ -278,6 +278,8 @@ class KNNGraphDataset(Dataset):
         feature_array = np.array(feature_list)
         id_array = np.array(id_list)
         node_num = len(data_list)
+        gau = Gaussian(sigma=1.0)
+
         for i in range(node_num):
             neighbors_array = data_list[i]["neighbors"]
             weights_array = data_list[i]["distances"]
@@ -295,7 +297,11 @@ class KNNGraphDataset(Dataset):
                             neighbor_feature_list.append(feature_array[j])
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
                 neighbors_feature_mask = np.array([1, 1, 1])
+                
+                # Calculate the neighbor weights array here:
                 neighbors_weight = weights_array
+                neighbors_weight = gau.cal_coefficient(neighbors_weight)
+                updated_neighbor_weight = softmax(neighbors_weight)
             elif neighbors_num == 2:
                 for index in range(2):
                     neighbor_id = int(neighbors_array[index])
@@ -304,11 +310,14 @@ class KNNGraphDataset(Dataset):
                             neighbor_feature_list.append(feature_array[j])
                     neighbor_weight_list.append(weights_array[index])
                 neighbor_feature_list.append(neighbor_feature_list[0])
-                neighbor_weight_list.append(100000.0)
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
                 neighbors_feature_mask = np.array([1, 1, 0])
-                neighbors_weight = np.stack(neighbor_weight_list, axis=0)
-
+                
+                # Calculate the neighbor weights array here:
+                neighbors_weight = weights_array
+                neighbors_weight = gau.cal_coefficient(neighbors_weight)
+                updated_neighbor_weight = softmax(neighbors_weight)
+                updated_neighbor_weight = np.concatenate((updated_neighbor_weight, np.array([0])), axis=0)
             elif neighbors_num == 1:
                 for index in range(1):
                     neighbor_id = int(neighbors_array[index])
@@ -318,21 +327,17 @@ class KNNGraphDataset(Dataset):
                     neighbor_weight_list.append(weights_array[index])
                 neighbor_feature_list.append(neighbor_feature_list[0])
                 neighbor_feature_list.append(neighbor_feature_list[0])
-                neighbor_weight_list.append(100000.0)
-                neighbor_weight_list.append(100000.0)
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
                 neighbors_feature_mask = np.array([1, 0, 0])        
-                neighbors_weight = np.stack(neighbor_weight_list, axis=0)
+                
+                # Calculate the neighbor weights array here:
+                updated_neighbor_weight = np.array([1, 0, 0])
             else:
                 for index in range(3):
                     neighbor_feature_list.append(feature_array[0])
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
                 neighbors_feature_mask = np.array([0, 0, 0])
-                neighbors_weight = np.array([0.0, 0.0, 0.0])
-            
-            gau = Gaussian(sigma=1.0) 
-            neighbor_weight = gau.cal_coefficient(neighbors_weight)
-            updated_neighbor_weight = softmax(neighbor_weight)
+                updated_neighbor_weight = np.array([0.0, 0.0, 0.0])
             data_list[i]["neighbors_feature"] = neighbors_feature
             data_list[i]["neighbors_feature_mask"] = neighbors_feature_mask
             data_list[i]["neighbors_weight"] = updated_neighbor_weight
