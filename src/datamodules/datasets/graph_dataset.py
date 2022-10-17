@@ -8,6 +8,10 @@ import numpy as np
 from tqdm import tqdm, trange
 from sklearn.cluster import DBSCAN
 from torch.utils.data import Dataset
+from visualize_graph import construct_knn_graph as construct_knn_graph1
+from visualize_graph import plot_knn_graph as plot_knn_graph1
+from visualize_graph import summary_bin_list_from_array as summary_bin_list_from_array1
+
 from src.utils.util import (
     Gaussian,
     softmax,
@@ -202,9 +206,42 @@ class KNNGraphDataset(Dataset):
         labels_array = cluster_result.labels_
         labels_array = label_propagation(labels_array, pre_compute_matrix)
         data_list, labels_array = remove_ambiguous_label(data_list, labels_array, contig_id_list)
+        # ----------------for debug only-----------
+        self.export_csv(data_list, labels_array)
+        bin_list = summary_bin_list_from_array1(
+            data_list=data_list,
+            labels_array=labels_array,
+        )
+        plotting_contig_list = []
+        for data, label in zip(data_list, labels_array):
+            if label in [13, 5, 14, 3, 4]:
+                plotting_contig_list.append(data['id'])
+
+        knn_graph = construct_knn_graph1(
+                data_list=data_list,
+                plotting_graph_size=len(plotting_contig_list),
+                plotting_contig_list=plotting_contig_list,
+                k=3,
+            )
+
+        plot_knn_graph1(
+            graph=knn_graph,
+            log_path='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/graphs',
+            graph_type='test',
+            plotting_contig_list=plotting_contig_list,
+            bin_list=bin_list,
+        )
+        # -----------------------------------------
         data_list = self.filter_knn_graph(data_list)
 
         return data_list
+
+    def export_csv(self, data_list, labels_array,path="/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/tmp/deepbin.csv"):
+        with open(path, 'w') as f:
+            for data, label in zip(data_list, labels_array):
+                if label != 0:
+                    f.write('NODE_' + str(int(data['id'])) + ',' + str(int(label)) + '\n')
+
 
     def __getitem__(self, index: int):
         return self.data[index]
@@ -296,7 +333,7 @@ class KNNGraphDataset(Dataset):
                         if int(id_array[j]) == neighbor_id:
                             neighbor_feature_list.append(feature_array[j])
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
-                neighbors_feature_mask = np.array([1, 1, 1])
+                neighbors_feature_mask = np.array([1.0, 1.0, 1.0])
                 
                 # Calculate the neighbor weights array here:
                 neighbors_weight = weights_array
@@ -309,9 +346,9 @@ class KNNGraphDataset(Dataset):
                         if int(id_array[j]) == neighbor_id:
                             neighbor_feature_list.append(feature_array[j])
                     neighbor_weight_list.append(weights_array[index])
-                neighbor_feature_list.append(neighbor_feature_list[0])
+                neighbor_feature_list.append(np.zeros_like(neighbor_feature_list[0]))
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
-                neighbors_feature_mask = np.array([1, 1, 0])
+                neighbors_feature_mask = np.array([1.0, 1.0, 0.0])
                 
                 # Calculate the neighbor weights array here:
                 neighbors_weight = weights_array
@@ -325,18 +362,18 @@ class KNNGraphDataset(Dataset):
                         if int(id_array[j]) == neighbor_id:
                             neighbor_feature_list.append(feature_array[j])
                     neighbor_weight_list.append(weights_array[index])
-                neighbor_feature_list.append(neighbor_feature_list[0])
-                neighbor_feature_list.append(neighbor_feature_list[0])
+                neighbor_feature_list.append(np.zeros_like(neighbor_feature_list[0]))
+                neighbor_feature_list.append(np.zeros_like(neighbor_feature_list[0]))
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
-                neighbors_feature_mask = np.array([1, 0, 0])        
+                neighbors_feature_mask = np.array([1.0, 0.0, 0.0])        
                 
                 # Calculate the neighbor weights array here:
-                updated_neighbor_weight = np.array([1, 0, 0])
+                updated_neighbor_weight = np.array([1.0, 0.0, 0.0])
             else:
                 for index in range(3):
                     neighbor_feature_list.append(feature_array[0])
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
-                neighbors_feature_mask = np.array([0, 0, 0])
+                neighbors_feature_mask = np.array([0.0, 0.0, 0.0])
                 updated_neighbor_weight = np.array([0.0, 0.0, 0.0])
             data_list[i]["neighbors_feature"] = neighbors_feature
             data_list[i]["neighbors_feature_mask"] = neighbors_feature_mask
