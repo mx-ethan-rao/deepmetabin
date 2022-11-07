@@ -1,6 +1,6 @@
 _target_: src.datamodules.deepmetabin_datamodule.DeepMetaBinDataModule
 
-zarr_dataset_path: "/home/eddie/cami1-low-long.zarr"
+zarr_dataset_path: "/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/data/cami-m1.zarr"
 use_neighbor_feature: True
 k: 5
 sigma: 1

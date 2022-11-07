@@ -114,7 +114,7 @@ def plot_dbscan_graph(
     csv_path,
     k,
     graph_type,
-    output_path="/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/graphs",
+    output_path="/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/graphs",
     threshold=0.2,
     compute_method="top_k",
 ):
@@ -372,7 +372,7 @@ def compute_neighbors(
         top_k_pairs = sorted_pairs[1: k+1]
         neighbors_array = top_k_pairs[:, 1]
         distance_array = top_k_pairs[:, 0]
-        valid_num = np.sum(distance_array < 20)
+        valid_num = np.sum(distance_array < 5)
         return neighbors_array[:valid_num], distance_array[:valid_num]
     elif compute_method == "threshold":
         tar_feature = np.expand_dims(feature_array[index], axis=0)
@@ -558,11 +558,11 @@ def main(argv=None):
 if __name__ == "__main__":
     FLAGS = flags.FLAGS
 
-    flags.DEFINE_string("root_path", "/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/cami_low.zarr", "")
+    flags.DEFINE_string("root_path", "/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/data/cami-m1.zarr", "")
     flags.DEFINE_string("csv_path", "/tmp/local/zmzhang/DeepMetaBin/CAMI1/low/metadecoder/nc_result.csv", "")
-    flags.DEFINE_string("graph_type", "test_remove_minsample2", "")
+    flags.DEFINE_string("graph_type", "test", "")
     flags.DEFINE_integer("k", 3, "")
-    flags.DEFINE_string("output_path", "/tmp/local/zmzhang/DeepMetaBin/mingxing/work_with_wc/Metagenomic-Binning/graphs", "")
+    flags.DEFINE_string("output_path", "/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/graphs", "")
     flags.DEFINE_float("threshold", 0.2, "")
     flags.DEFINE_string("compute_method", "top_k", "")
     """

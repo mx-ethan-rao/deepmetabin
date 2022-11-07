@@ -8,6 +8,9 @@ import numpy as np
 from tqdm import tqdm, trange
 from sklearn.cluster import DBSCAN
 from torch.utils.data import Dataset
+from visualize_graph import summary_bin_list_from_array as summary_bin_list_from_array1
+from visualize_graph import construct_knn_graph as construct_knn_graph1
+from visualize_graph import plot_knn_graph as plot_knn_graph1
 
 from src.utils.util import (
     Gaussian,
@@ -203,9 +206,45 @@ class KNNGraphDataset(Dataset):
         labels_array = cluster_result.labels_
         labels_array = label_propagation(labels_array, pre_compute_matrix)
         data_list, labels_array = remove_ambiguous_label(data_list, labels_array, contig_id_list)
+        self.generate_must_link(data_list)
+        # ----------------for debug only-----------
+        # self.export_csv(data_list, labels_array)
+        bin_list = summary_bin_list_from_array1(
+            data_list=data_list,
+            labels_array=labels_array,
+        )
+        # plotting_contig_list = []
+        # for data, label in zip(data_list, labels_array):
+        #     if label in [13, 5, 14, 3, 4]:
+        #         plotting_contig_list.append(data['id'])
+
+        plotting_graph_size = 1000
+        plotting_contig_list = contig_id_list[:plotting_graph_size]
+
+        knn_graph = construct_knn_graph1(
+                data_list=data_list,
+                plotting_graph_size=plotting_graph_size,
+                plotting_contig_list=plotting_contig_list,
+                k=3,
+            )
+
+        plot_knn_graph1(
+            graph=knn_graph,
+            log_path='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/graphs',
+            graph_type='test1',
+            plotting_contig_list=plotting_contig_list,
+            bin_list=bin_list,
+        )
         data_list = self.filter_knn_graph(data_list)
 
         return data_list
+
+    def generate_must_link(self, data_list, output='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI1/medium/postprocess_001/must_link.csv'):
+        with open(output, 'w') as f:
+            for data in data_list:
+                for neigh in data['neighbors']:
+                    id = int(data['id'])
+                    f.write(f'{str(id)}\t{str(int(neigh))}\n')
 
 
     def __getitem__(self, index: int):
@@ -319,7 +358,7 @@ class KNNGraphDataset(Dataset):
                 neighbors_weight = weights_array
                 neighbors_weight = gau.cal_coefficient(neighbors_weight)
                 updated_neighbor_weight = softmax(neighbors_weight)
-                updated_neighbor_weight = np.concatenate((updated_neighbor_weight, np.array([0])), axis=0)
+                updated_neighbor_weight = np.concatenate((updated_neighbor_weight, np.array([0.0])), axis=0)
             elif neighbors_num == 1:
                 for index in range(1):
                     neighbor_id = int(neighbors_array[index])
@@ -336,7 +375,7 @@ class KNNGraphDataset(Dataset):
                 updated_neighbor_weight = np.array([1.0, 0.0, 0.0])
             else:
                 for index in range(3):
-                    neighbor_feature_list.append(feature_array[0])
+                    neighbor_feature_list.append(np.zeros_like(feature_array[0]))
                 neighbors_feature = np.stack(neighbor_feature_list, axis=0)
                 neighbors_feature_mask = np.array([0.0, 0.0, 0.0])
                 updated_neighbor_weight = np.array([0.0, 0.0, 0.0])

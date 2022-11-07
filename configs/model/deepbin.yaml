@@ -10,5 +10,5 @@ gaussian_size: 512
 num_classes: 30
 plot_graph_size: 1000
 processed_zarr_dataset_path: "/home/eddie/cami1-low-long.zarr"
-log_path: "/home/eddie/log"
+log_path: "/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/logs"
 k: 5
