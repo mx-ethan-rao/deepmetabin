@@ -737,7 +737,7 @@ def compute_neighbors(
         top_k_pairs = sorted_pairs[1: k+1]
         neighbors_array = top_k_pairs[:, 1]
         distance_array = top_k_pairs[:, 0]
-        valid_num = np.sum(distance_array < 10)
+        valid_num = np.sum(distance_array < 7.5)
         return neighbors_array[:valid_num], distance_array[:valid_num]
     elif compute_method == "threshold":
         tar_feature = np.expand_dims(feature_array[index], axis=0)

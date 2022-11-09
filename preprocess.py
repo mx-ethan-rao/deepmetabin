@@ -7,6 +7,7 @@ from src.utils.util import (
     load_graph,
     describe_dataset,
 )
+# import os
 
 
 def create_contigs_zarr_dataset(
@@ -15,8 +16,8 @@ def create_contigs_zarr_dataset(
         labels_path: str,
         tnf_feature_path: str,
         rpkm_feature_path: str,
-        ag_graph_path: str,
-        pe_graph_path: str,
+        # ag_graph_path: str,
+        # pe_graph_path: str,
         filter_threshold: int = 1000,
         long_contig_threshold: int = 1000,
     ):
@@ -51,8 +52,8 @@ def create_contigs_zarr_dataset(
     bin_list = summary_bin_list_from_csv(labels_path)
     num_cluster = len(bin_list)
 
-    ag_graph_contig_id_dict_list, ag_graph_edges_list = load_graph(ag_graph_path)
-    pe_graph_contig_id_dict_list, pe_graph_edges_list = load_graph(pe_graph_path)
+    # ag_graph_contig_id_dict_list, ag_graph_edges_list = load_graph(ag_graph_path)
+    # pe_graph_contig_id_dict_list, pe_graph_edges_list = load_graph(pe_graph_path)
     # load contig name file:
     contigname_file = np.load(contigname_path)
     contigname_attrs_name = contigname_file.files[0]
@@ -89,16 +90,16 @@ def create_contigs_zarr_dataset(
             root[contig_id]["tnf_feat"] = tnf_attrs[i]
             root[contig_id]["rpkm_feat"] = rpkm_attrs[i]
             root[contig_id]["labels"] = labels
-            # add ag graph edges.
-            for index, id in enumerate(ag_graph_contig_id_dict_list):
-                if contig_id == id:
-                    root[contig_id]["ag_graph_edges"] = ag_graph_edges_list[index]
-                    break
-            # add pe graph edges.
-            for index, id in enumerate(pe_graph_contig_id_dict_list):
-                if contig_id == id:
-                    root[contig_id]["pe_graph_edges"] = pe_graph_edges_list[index]
-                    break
+            # # add ag graph edges.
+            # for index, id in enumerate(ag_graph_contig_id_dict_list):
+            #     if contig_id == id:
+            #         root[contig_id]["ag_graph_edges"] = ag_graph_edges_list[index]
+            #         break
+            # # add pe graph edges.
+            # for index, id in enumerate(pe_graph_contig_id_dict_list):
+            #     if contig_id == id:
+            #         root[contig_id]["pe_graph_edges"] = pe_graph_edges_list[index]
+            #         break
 
     root.attrs["contig_id_list"] = contig_id_list
     root.attrs["long_contig_id_list"] = long_contig_id_list
@@ -112,8 +113,8 @@ class PreprocessManager:
         labels_path: str,
         tnf_feature_path: str,
         rpkm_feature_path: str,
-        ag_graph_path: str,
-        pe_graph_path: str,
+        # ag_graph_path: str,
+        # pe_graph_path: str,
         filter_threshold: int = 1000,
         long_contig_threshold: int = 1000,
         **kwargs,
@@ -123,24 +124,38 @@ class PreprocessManager:
         self.labels_path = labels_path
         self.tnf_feature_path = tnf_feature_path
         self.rpkm_feature_path = rpkm_feature_path
-        self.ag_graph_path = ag_graph_path
-        self.pe_graph_path = pe_graph_path
+        # self.ag_graph_path = ag_graph_path
+        # self.pe_graph_path = pe_graph_path
         self.filter_threshold = filter_threshold
         self.long_contig_threshold = long_contig_threshold
 
     def preprocess(self):
+        # original_contignames = np.load(self.contigname_path)['arr_0']
+        # contignames = [ f'NODE_{i + 1}_' + '_'.join(str(contigname).split('_')[2:]) for i, contigname in enumerate(original_contignames)]
+        # contignames = np.array(contignames)
+        # np.savez('tmp_contignames.npz', contignames)
+
+        # contig_dict = dict(zip(original_contignames.tolist(), contignames))
+        # with open(self.labels_path, 'r') as f1, open('tmp_labels.csv', 'w') as f2:
+        #     for line in f1.readlines():
+        #         item = line.split(',')
+        #         f2.write('{},{}\n'.format(contig_dict[item[0].strip()], item[1].strip()))
+
         create_contigs_zarr_dataset(
             output_zarr_path=self.output_zarr_path,
             contigname_path=self.contigname_path,
             labels_path=self.labels_path,
             tnf_feature_path=self.tnf_feature_path,
             rpkm_feature_path=self.rpkm_feature_path,
-            ag_graph_path=self.ag_graph_path,
-            pe_graph_path=self.pe_graph_path,
+            # ag_graph_path=self.ag_graph_path,
+            # pe_graph_path=self.pe_graph_path,
             filter_threshold=self.filter_threshold,
             long_contig_threshold=self.long_contig_threshold,
         )
         describe_dataset(processed_zarr_dataset_path=self.output_zarr_path)
+        # os.remove('tmp_contignames.npz')
+        # os.remove('tmp_labels.csv')
+
 
 
 def main(argv=None):
@@ -157,8 +172,8 @@ if __name__ == "__main__":
     flags.DEFINE_string("labels_path", "", "")
     flags.DEFINE_string("tnf_feature_path", "", "")
     flags.DEFINE_string("rpkm_feature_path", "", "")
-    flags.DEFINE_string("ag_graph_path", "", "")
-    flags.DEFINE_string("pe_graph_path", "", "")
+    # flags.DEFINE_string("ag_graph_path", "", "")
+    # flags.DEFINE_string("pe_graph_path", "", "")
     flags.DEFINE_integer("filter_threshold", 1000, "")
     flags.DEFINE_integer("long_contig_threshold", 1000, "")
     app.run(main)

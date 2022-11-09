@@ -8,6 +8,8 @@ import numpy as np
 from tqdm import tqdm, trange
 from sklearn.cluster import DBSCAN
 from torch.utils.data import Dataset
+import os
+import sys
 from visualize_graph import summary_bin_list_from_array as summary_bin_list_from_array1
 from visualize_graph import construct_knn_graph as construct_knn_graph1
 from visualize_graph import plot_knn_graph as plot_knn_graph1
@@ -169,7 +171,9 @@ class KNNGraphDataset(Dataset):
         zarr_dataset_path: str = "",
         k: int = 5,
         sigma: int =1,
+        multisample=False,
         use_neighbor_feature=True,
+        must_link_path: str = "",
         *args,
         **kwargs,
     ) -> None:
@@ -177,6 +181,8 @@ class KNNGraphDataset(Dataset):
         self.zarr_dataset_path = zarr_dataset_path
         self.k = k
         self.use_neighbor_feature = use_neighbor_feature
+        self.must_link_path = must_link_path
+        self.multisample = multisample
         self.Gaussian = Gaussian(sigma=sigma)
         self.dbscan = DBSCAN(
             eps=1.65,
@@ -206,7 +212,7 @@ class KNNGraphDataset(Dataset):
         labels_array = cluster_result.labels_
         labels_array = label_propagation(labels_array, pre_compute_matrix)
         data_list, labels_array = remove_ambiguous_label(data_list, labels_array, contig_id_list)
-        self.generate_must_link(data_list)
+        self.generate_must_link(data_list, output=self.must_link_path)
         # ----------------for debug only-----------
         # self.export_csv(data_list, labels_array)
         bin_list = summary_bin_list_from_array1(
@@ -231,15 +237,17 @@ class KNNGraphDataset(Dataset):
         plot_knn_graph1(
             graph=knn_graph,
             log_path='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/graphs',
-            graph_type='test1',
+            graph_type=os.path.basename(os.path.dirname(self.must_link_path)),
             plotting_contig_list=plotting_contig_list,
             bin_list=bin_list,
         )
+        if self.multisample:
+            data_list, contig_id_list = self._load_graph_attrs(zarr_dataset_path, normal_rpkm=True)
         data_list = self.filter_knn_graph(data_list)
 
         return data_list
 
-    def generate_must_link(self, data_list, output='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI1/medium/postprocess_001/must_link.csv'):
+    def generate_must_link(self, data_list, output=''):
         with open(output, 'w') as f:
             for data in data_list:
                 for neigh in data['neighbors']:
@@ -253,15 +261,34 @@ class KNNGraphDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def _load_graph_attrs(self, zarr_dataset_path: str):
+    def _load_graph_attrs(self, zarr_dataset_path: str, normal_rpkm=False):
         root = zarr.open(zarr_dataset_path, mode="r")
         contig_id_list = root.attrs["contig_id_list"]
+        
+        if self.multisample and not normal_rpkm:
+            rkpm_array = np.array([root[i]["rpkm_feat"] for i in contig_id_list])
+            mask = (rkpm_array != 0).sum(axis=0)
+            max_index = np.where(mask==mask.max())[0]
+            if max_index.shape[0] > 1:
+                rkpm_var = rkpm_array.var(axis=0)
+                max_index = np.where(rkpm_var==rkpm_var[max_index].max())[0][0]
+            else:
+                max_index = max_index[0]
+        elif self.multisample and normal_rpkm:
+            rkpm_array = np.array([root[i]["rpkm_feat"] for i in contig_id_list])
+            rkpm_mean = rkpm_array.mean(axis=0)
+            rkpm_std = rkpm_array.std(axis=0)
+
         data_list = []
         for i in tqdm(contig_id_list):
             item = {}
             tnf = np.array(root[i]["tnf_feat"])
             normalized_tnf = self.zscore(tnf, axis=0)
             rpkm = np.array(root[i]["rpkm_feat"])
+            if self.multisample and not normal_rpkm:
+                rpkm = np.array([rpkm[max_index]])
+            elif self.multisample and normal_rpkm:
+                rpkm = (rpkm - rkpm_mean) / rkpm_std
             feature = np.concatenate((normalized_tnf, rpkm), axis=0)
             labels = np.array(root[i]["labels"])
             contig_id = np.array(root[i]["id"])

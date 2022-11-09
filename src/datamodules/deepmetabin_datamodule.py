@@ -9,6 +9,8 @@ class DeepMetaBinDataModule(pl.LightningDataModule):
         self,
         zarr_dataset_path,
         train_val_test_split,
+        must_link_path,
+        multisample,
         batch_size=1,
         sigma=1,
         num_workers=0,
@@ -34,6 +36,8 @@ class DeepMetaBinDataModule(pl.LightningDataModule):
         self.pin_memory = pin_memory
         self.k = k
         self.use_neighbor_feature = use_neighbor_feature
+        self.must_link_path = must_link_path
+        self.multisample =multisample
         self.sigma = sigma
 
     def prepare_data(self):
@@ -45,6 +49,8 @@ class DeepMetaBinDataModule(pl.LightningDataModule):
             k=self.k,
             sigma=self.sigma,
             use_neighbor_feature=self.use_neighbor_feature,
+            must_link_path=self.must_link_path,
+            multisample=self.multisample
         )
         # self.data_train, self.data_val, self.data_test = random_split(
         #     dataset=dataset,

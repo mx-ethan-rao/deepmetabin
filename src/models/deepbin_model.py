@@ -32,6 +32,7 @@ class DeepBinModel(pl.LightningModule):
         plot_graph_size=200,
         log_path="",
         k=5,
+        latent_save_path="",
         use_gmm=True,
         *args,
         **kwargs,
@@ -75,7 +76,7 @@ class DeepBinModel(pl.LightningModule):
         self.plot_graph_size = plot_graph_size
         self.log_path = log_path
         self.use_gmm = use_gmm
-        self.gmm = GaussianMixture(n_components=40, random_state=2021) if self.use_gmm else None
+        self.gmm = GaussianMixture(n_components=num_classes, random_state=2021) if self.use_gmm else None
         self.count = 0
 
     def unlabeled_loss(self, data, out_net):
@@ -196,7 +197,7 @@ class DeepBinModel(pl.LightningModule):
         )
         
         # Save latent.
-        latent_save_path = "/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/data/cami1-latent/latent_epoch_{}".format(self.count//80)
+        latent_save_path = "{}/latent_{}_{}".format(self.latent_save_path, self.current_epoch, self.global_step)
         latent_feature = latent.numpy()
         np.save(latent_save_path, latent_feature)
 
