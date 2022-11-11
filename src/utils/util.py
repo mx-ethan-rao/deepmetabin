@@ -597,7 +597,7 @@ def log_tsne_figure(batch, latent, log_path):
     labels = batch["labels"]
     relative_path = "/{}-{}.png".format("tsne", time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
     result_tsne_figure_path = log_path + relative_path
-    tsne = TSNE(n_components=2, learning_rate='auto')
+    tsne = TSNE(n_components=2, learning_rate='auto', random_state=2021)
     compressed_latent = tsne.fit_transform(latent)
     figure = plt.figure(figsize=(10, 10))
     plt.scatter(
@@ -606,6 +606,7 @@ def log_tsne_figure(batch, latent, log_path):
         c=labels,
         marker='.',
         s=10,
+        cmap=plt.cm.get_cmap('jet', 10)
     )
     figure.savefig(result_tsne_figure_path)
     return result_tsne_figure_path
@@ -737,7 +738,7 @@ def compute_neighbors(
         top_k_pairs = sorted_pairs[1: k+1]
         neighbors_array = top_k_pairs[:, 1]
         distance_array = top_k_pairs[:, 0]
-        valid_num = np.sum(distance_array < 7.5)
+        valid_num = np.sum(distance_array < 6)
         return neighbors_array[:valid_num], distance_array[:valid_num]
     elif compute_method == "threshold":
         tar_feature = np.expand_dims(feature_array[index], axis=0)

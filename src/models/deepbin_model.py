@@ -75,6 +75,7 @@ class DeepBinModel(pl.LightningModule):
         self.processed_zarr_dataset_path = processed_zarr_dataset_path
         self.plot_graph_size = plot_graph_size
         self.log_path = log_path
+        self.latent_save_path = latent_save_path
         self.use_gmm = use_gmm
         self.gmm = GaussianMixture(n_components=num_classes, random_state=2021) if self.use_gmm else None
         self.count = 0
@@ -181,6 +182,10 @@ class DeepBinModel(pl.LightningModule):
             result_bin_list=result_bin_list,
         )
         """
+        if self.current_epoch < 100:
+            self.use_gmm = False
+        else:
+            self.use_gmm = True
         # add gmm to the latent vector, wrap a function here.
         if self.use_gmm:
             self.log_gmm(

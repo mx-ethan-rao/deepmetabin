@@ -24,7 +24,7 @@ class LossFunctions:
       return loss.sum(-1).mean()
 
 
-    def reconstruction_loss(self, real, predicted):
+    def reconstruction_loss(self, real, predicted, multisample=True):
       """Reconstruction loss between the true and predicted outputs, update the logics here:
       to better utilize the feature importance, the abundance and rpkm feature should set 
       different weights. Currently ratio is 0.15 : 0.85.
@@ -38,9 +38,14 @@ class LossFunctions:
           output: (array/float) depending on average parameters the result will be the mean
                                 of all the sample losses or an array with the losses per sample
       """
-      loss = (real - predicted).pow(2)
-      loss[:, :103] = loss[:, :103] * 0.15 / 103
-      loss[:, -1] = loss[:, -1] * 0.85
+      if not multisample:
+        loss = (real - predicted).pow(2)
+        loss[:, :103] = loss[:, :103] * 0.15 / 103
+        loss[:, -1] = loss[:, -1] * 0.85
+      else:
+        loss = (real - predicted).pow(2)
+        loss[:, :103] = loss[:, :103] * 0.15 / 103
+        loss[:, 103:] = loss[:, 103:] * 0.85 / (loss.shape[1] - 103)
       return loss.sum(-1).mean()
 
 

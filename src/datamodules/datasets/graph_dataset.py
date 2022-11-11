@@ -194,7 +194,7 @@ class KNNGraphDataset(Dataset):
         self.data = self.load_dataset(zarr_dataset_path)
 
     def load_dataset(self, zarr_dataset_path):
-        data_list, contig_id_list = self._load_graph_attrs(zarr_dataset_path)
+        data_list, contig_id_list = self._load_graph_attrs(zarr_dataset_path, normal_rpkm=True)
         if self.use_neighbor_feature:
             data_list = self.create_knn_graph(
                 data_list=data_list,
@@ -241,10 +241,8 @@ class KNNGraphDataset(Dataset):
             plotting_contig_list=plotting_contig_list,
             bin_list=bin_list,
         )
-        if self.multisample:
-            data_list, contig_id_list = self._load_graph_attrs(zarr_dataset_path, normal_rpkm=True)
+        
         data_list = self.filter_knn_graph(data_list)
-
         return data_list
 
     def generate_must_link(self, data_list, output=''):
