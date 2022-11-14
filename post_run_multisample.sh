@@ -16,7 +16,7 @@ source /home/comp/zmzhang/software/anaconda3/bin/activate base
 export PATH=/home/comp/zmzhang/code:$PATH
 
 cd $(dirname $0)
-root_path=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/deepmetabin
+root_path=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/deepmetabin
 
 export sample_paths=`ls -d $root_path/S*`
 mkdir -p $root_path/post_bins
@@ -76,3 +76,7 @@ for sample_path in $sample_paths; do
 done
 # 使用 wait 命令阻塞当前进程，直到所有子进程全部执行完
 wait
+source /home/comp/zmzhang/software/anaconda3/bin/activate base
+cd $root_path/post_bins
+checkm lineage_wf -t 100 -x fasta --tab_table -f checkm.tsv ./ ./
+cd $(dirname $0)

@@ -194,7 +194,7 @@ class KNNGraphDataset(Dataset):
         self.data = self.load_dataset(zarr_dataset_path)
 
     def load_dataset(self, zarr_dataset_path):
-        data_list, contig_id_list = self._load_graph_attrs(zarr_dataset_path, normal_rpkm=True)
+        data_list, contig_id_list = self._load_graph_attrs(zarr_dataset_path)
         if self.use_neighbor_feature:
             data_list = self.create_knn_graph(
                 data_list=data_list,
@@ -259,20 +259,11 @@ class KNNGraphDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def _load_graph_attrs(self, zarr_dataset_path: str, normal_rpkm=False):
+    def _load_graph_attrs(self, zarr_dataset_path: str):
         root = zarr.open(zarr_dataset_path, mode="r")
         contig_id_list = root.attrs["contig_id_list"]
         
-        if self.multisample and not normal_rpkm:
-            rkpm_array = np.array([root[i]["rpkm_feat"] for i in contig_id_list])
-            mask = (rkpm_array != 0).sum(axis=0)
-            max_index = np.where(mask==mask.max())[0]
-            if max_index.shape[0] > 1:
-                rkpm_var = rkpm_array.var(axis=0)
-                max_index = np.where(rkpm_var==rkpm_var[max_index].max())[0][0]
-            else:
-                max_index = max_index[0]
-        elif self.multisample and normal_rpkm:
+        if self.multisample:
             rkpm_array = np.array([root[i]["rpkm_feat"] for i in contig_id_list])
             rkpm_mean = rkpm_array.mean(axis=0)
             rkpm_std = rkpm_array.std(axis=0)
@@ -283,9 +274,7 @@ class KNNGraphDataset(Dataset):
             tnf = np.array(root[i]["tnf_feat"])
             normalized_tnf = self.zscore(tnf, axis=0)
             rpkm = np.array(root[i]["rpkm_feat"])
-            if self.multisample and not normal_rpkm:
-                rpkm = np.array([rpkm[max_index]])
-            elif self.multisample and normal_rpkm:
+            if self.multisample:
                 rpkm = (rpkm - rkpm_mean) / rkpm_std
             feature = np.concatenate((normalized_tnf, rpkm), axis=0)
             labels = np.array(root[i]["labels"])

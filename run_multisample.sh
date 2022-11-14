@@ -16,13 +16,13 @@ clean(){
 
 
 cd $(dirname $0)
-multisample_name=cami2_airways
-contig_dir=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/spades/Airways
-concat_tnf=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/vamb/vamb_out/tnf.npz
-concat_rkpm=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/vamb/vamb_out/rpkm.npz
-concat_contignames=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/vamb/vamb_out/contignames.npz
-concat_label=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/vamb/labels/labels.csv
-out=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/deepmetabin
+multisample_name=cami2_skin
+contig_dir=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/spades/Skin
+concat_tnf=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/vamb/vamb_out/tnf.npz
+concat_rkpm=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/vamb/vamb_out/rpkm.npz
+concat_contignames=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/vamb/vamb_out/contignames.npz
+concat_label=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/vamb/labels/labels.csv
+out=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/deepmetabin
 
 mkdir -p $(dirname $0)/data/$multisample_name
 contigs=`ls $contig_dir/*/contigs.fasta`
@@ -36,7 +36,7 @@ if [ ! $1 ];then
         --concat_rkpm $concat_rkpm \
         --concat_contignames $concat_contignames \
         --concat_label $concat_label \
-        --out $out \
+        --out $out
     export sample_paths=`ls -d $out/S*`
     fifoname=0
 else
@@ -65,13 +65,13 @@ for sample_path in $sample_paths; do
     {
         mkdir -p $sample_path/latents
         sample_name=`basename $sample_path`
-        python preprocess.py \
-            --output_zarr_path $(dirname $0)/data/$multisample_name/$sample_name.zarr \
-            --contigname_path $sample_path/contignames.npz \
-            --labels_path $sample_path/labels.csv \
-            --tnf_feature_path $sample_path/tnf.npz \
-            --rpkm_feature_path $sample_path/rpkm.npz \
-            --filter_threshold 1000
+        # python preprocess.py \
+        #     --output_zarr_path $(dirname $0)/data/$multisample_name/$sample_name.zarr \
+        #     --contigname_path $sample_path/contignames.npz \
+        #     --labels_path $sample_path/labels.csv \
+        #     --tnf_feature_path $sample_path/tnf.npz \
+        #     --rpkm_feature_path $sample_path/rpkm.npz \
+        #     --filter_threshold 1000
 
         export num_classes=`python /datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/fixed_codes/calculate_bin_num.py \
                                 --fasta  $sample_path/contigs.fasta \
