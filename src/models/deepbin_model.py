@@ -79,6 +79,7 @@ class DeepBinModel(pl.LightningModule):
         self.use_gmm = use_gmm
         self.gmm = GaussianMixture(n_components=num_classes, random_state=2021) if self.use_gmm else None
         self.count = 0
+        self.epoch_list = []
 
     def unlabeled_loss(self, data, out_net):
         z, data_recon = out_net["gaussian"], out_net["x_rec"]
@@ -211,12 +212,7 @@ class DeepBinModel(pl.LightningModule):
         self.log("val/recall", recall, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/F1", F1, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/ARI", ARI, on_step=False, on_epoch=True, prog_bar=False)
-        """
-        wandb.log({"val/ground_truth_ag_subgraph": wandb.Image(gd_ag_graph_path)})
-        wandb.log({"val/result_ag_subgraph": wandb.Image(result_ag_graph_path)})
-        wandb.log({"val/ground_truth_knn_subgraph": wandb.Image(gd_knn_graph_path)})
-        wandb.log({"val/result_knn_subgraph": wandb.Image(result_knn_graph_path)})
-        """
+  
         wandb.log({"val/tsne_figure": wandb.Image(result_tsne_figure_path)})
         
 
@@ -273,5 +269,19 @@ class DeepBinModel(pl.LightningModule):
         self.log("val/gmm_recall", gmm_recall, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_F1", gmm_F1, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_ARI", gmm_ARI, on_step=False, on_epoch=True, prog_bar=False)
+        self.if_stop(gmm_F1, self.current_epoch, self.global_step)
         #wandb.log({"val/result_gmm_ag_subgraph": wandb.Image(gmm_result_ag_graph_path)})
         #wandb.log({"val/result_gmm_knn_subgraph": wandb.Image(gmm_result_knn_graph_path)})
+
+    def if_stop(self, f1, current_epoch, global_step):
+        patience = 33
+        self.epoch_list.append((f1, current_epoch, global_step))
+        current_best = max(self.epoch_list, key=lambda elem: elem[0])
+        best_idx = self.epoch_list.index(current_best)
+        if len(self.epoch_list) - best_idx - 1 >= patience:
+            import os
+            os.rename("{}/latent_{}_{}.npy".format(self.latent_save_path, current_best[1], current_best[2]), \
+                "{}/latent_{}_{}_best.npy".format(self.latent_save_path, current_best[1], current_best[2]))
+            import sys
+            sys.exit(0)
+
