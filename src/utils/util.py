@@ -234,9 +234,9 @@ def describe_dataset(processed_zarr_dataset_path):
     """
     root = zarr.open(processed_zarr_dataset_path, mode="r")
     contig_id_list = root.attrs["contig_id_list"]
-    long_contig_id_list = root.attrs["long_contig_id_list"]
+    # long_contig_id_list = root.attrs["long_contig_id_list"]
     print("Total contig number is {}".format(len(contig_id_list)))
-    print("Long contig number is {}".format(len(long_contig_id_list)))
+    # print("Long contig number is {}".format(len(long_contig_id_list)))
 
 
 def summary_bin_list_from_batch(batch, bin_tensor):
@@ -760,10 +760,10 @@ def compute_neighbors(
         raise NotImplementedError("Only support top_k and threshold method currently.")
 
 
-def create_matrix(data_list, contig_list, option="normal"):
+def create_matrix(data_list, contig_list, labels_array=None, option="normal"):
     node_num = len(data_list)
     if option == "normal":
-        pre_compute_matrix = np.full((node_num, node_num), 1000.0, dtype=float)
+        pre_compute_matrix = np.full((node_num, node_num), 1000.0, dtype="float32")
         for i in range(node_num):
             neighbors_array = data_list[i]["neighbors"]
             distances_array = data_list[i]["distances"]
@@ -777,8 +777,9 @@ def create_matrix(data_list, contig_list, option="normal"):
                 pre_compute_matrix[i][neighbors_index] = distances_array[j]
                 pre_compute_matrix[neighbors_index][i] = distances_array[j]
             pre_compute_matrix[i][i] = 0.0
+        return pre_compute_matrix
     elif option == "sparse":
-        pre_compute_matrix = np.zeros((node_num, node_num), dtype=float)
+        indices = set()
         for i in range(node_num):
             neighbors_array = data_list[i]["neighbors"]
             distances_array = data_list[i]["distances"]
@@ -787,30 +788,31 @@ def create_matrix(data_list, contig_list, option="normal"):
                 neighbors_id = int(neighbors_array[j])
                 neighbors_index = get_index_by_id_from_list(
                     neighbors_id,
-                    contig_list
+                    contig_list,
                 )
-                pre_compute_matrix[i][neighbors_index] = distances_array[j]
-                pre_compute_matrix[neighbors_index][i] = distances_array[j]
-        pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
-    return pre_compute_matrix
+                if labels_array[i] == -1:
+                    indices.add((i, neighbors_index))
+                if labels_array[neighbors_index] == -1:
+                    indices.add((neighbors_index, i))
+            if labels_array[i] != -1:
+                indices.add((i, i))
+        data = [1.0] * len(indices)
+        rows = list(zip(*indices))[0]
+        cols = list(zip(*indices))[1]
+        return sparse.csr_matrix((data, (list(rows), list(cols))), shape=(node_num, node_num), dtype='float32')
 
 
 def label_propagation(labels_array, pre_compute_matrix):
-    label_prop_model = lbp(n_jobs=10)
-    pre_compute_matrix = np.where(pre_compute_matrix == 1000.0, 0.0, pre_compute_matrix)
-    pre_compute_matrix = np.where(pre_compute_matrix != 0.0, 1.0, pre_compute_matrix)
-    # np.fill_diagonal(pre_compute_matrix, 1.0)
-    for idx, elem in enumerate(zip(labels_array, pre_compute_matrix)):
-        label, row = elem
-        if label != -1:
-            row = np.where(row != 0.0, 0.0, row)
-            row[idx] = 1.0
-            pre_compute_matrix[idx] = row
+    label_prop_model = lbp(n_jobs=50)
+    print(5)
     divide = np.sum(pre_compute_matrix, axis=1)
+    print(6)
     divide = np.where(divide == 0.0, 1e-18, divide)
+    print(7)
     divide = np.expand_dims(divide, 1)
+    print(8)
     pre_compute_matrix = pre_compute_matrix / divide.repeat(pre_compute_matrix.shape[0], 1)
-    
+    print('lbp start')
     labels_array = label_prop_model.fit(pre_compute_matrix, labels_array)
     return labels_array
 
@@ -845,3 +847,38 @@ def remove_ambiguous_label(knn_graph, labels_array, contig_id_list):
         knn_graph[i]["neighbors"] = np.delete(knn_graph[i]["neighbors"], delete_idx)
         knn_graph[i]["distances"] = np.delete(knn_graph[i]["distances"], delete_idx)
     return knn_graph, labels_array
+
+def zscore(array, axis=None, inplace=False):
+    """Calculates zscore for an array. A cheap copy of scipy.stats.zscore.
+    Inputs:
+        array: Numpy array to be normalized
+        axis: Axis to operate across [None = entrie array]
+        inplace: Do not create new array, change input array [False]
+    Output:
+        If inplace is True: None
+        else: New normalized Numpy-array"""
+
+    if axis is not None and axis >= array.ndim:
+        raise np.AxisError('array only has {} axes'.format(array.ndim))
+
+    if inplace and not np.issubdtype(array.dtype, np.floating):
+        raise TypeError('Cannot convert a non-float array to zscores')
+
+    mean = array.mean(axis=axis)
+    std = array.std(axis=axis)
+
+    if axis is None:
+        if std == 0:
+            std = 1 # prevent divide by zero
+
+    else:
+        std[std == 0.0] = 1 # prevent divide by zero
+        shape = tuple(dim if ax != axis else 1 for ax, dim in enumerate(array.shape))
+        mean.shape, std.shape = shape, shape
+
+    if inplace:
+        array -= mean
+        array /= std
+        return None
+    else:
+        return (array - mean) / std

@@ -152,16 +152,16 @@ class DeepBinModel(pl.LightningModule):
         gd_bin_list, result_bin_list, non_labeled_id_list = summary_bin_list_from_batch(batch, bin_tensor)
 
         # Computing metrics here.
-        precision, recall, ARI, F1 = evaluate(
-            gd_bin_list=gd_bin_list,
-            result_bin_list=result_bin_list,
-            non_labeled_id_list=non_labeled_id_list,
-            unclassified=0,
-        )
+        # precision, recall, ARI, F1 = evaluate(
+        #     gd_bin_list=gd_bin_list,
+        #     result_bin_list=result_bin_list,
+        #     non_labeled_id_list=non_labeled_id_list,
+        #     unclassified=0,
+        # )
 
-        # plotting graph for visualization here.
-        contig_id_list = [int(id) for index, id in enumerate(batch["id"])]
-        plotting_contig_list = contig_id_list[:self.plot_graph_size]
+        # # plotting graph for visualization here.
+        # contig_id_list = [int(id) for index, id in enumerate(batch["id"])]
+        # plotting_contig_list = contig_id_list[:self.plot_graph_size]
         """
         gd_ag_graph_path, result_ag_graph_path = log_ag_graph(
             plotting_graph_size=self.plot_graph_size,
@@ -183,7 +183,7 @@ class DeepBinModel(pl.LightningModule):
             result_bin_list=result_bin_list,
         )
         """
-        if self.current_epoch < 100:
+        if self.current_epoch < 0:
             self.use_gmm = False
         else:
             self.use_gmm = True
@@ -191,29 +191,28 @@ class DeepBinModel(pl.LightningModule):
         if self.use_gmm:
             self.log_gmm(
                 batch=batch,
-                latent=latent,
-                plotting_contig_list=plotting_contig_list,
+                latent=latent
             )
 
         # Visualize latent space.
-        result_tsne_figure_path = log_tsne_figure(
-            batch=batch,
-            latent=latent,
-            log_path=self.log_path,
-        )
+        # result_tsne_figure_path = log_tsne_figure(
+        #     batch=batch,
+        #     latent=latent,
+        #     log_path=self.log_path,
+        # )
         
         # Save latent.
         latent_save_path = "{}/latent_{}_{}".format(self.latent_save_path, self.current_epoch, self.global_step)
         latent_feature = latent.numpy()
         np.save(latent_save_path, latent_feature)
 
-        self.log("val/acc", attributes.shape[0], on_step=False, on_epoch=True, prog_bar=False)
-        self.log("val/precision", precision, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("val/recall", recall, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("val/F1", F1, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("val/ARI", ARI, on_step=False, on_epoch=True, prog_bar=False)
+        # self.log("val/acc", attributes.shape[0], on_step=False, on_epoch=True, prog_bar=False)
+        # self.log("val/precision", precision, on_step=False, on_epoch=True, prog_bar=False)
+        # self.log("val/recall", recall, on_step=False, on_epoch=True, prog_bar=False)
+        # self.log("val/F1", F1, on_step=False, on_epoch=True, prog_bar=False)
+        # self.log("val/ARI", ARI, on_step=False, on_epoch=True, prog_bar=False)
   
-        wandb.log({"val/tsne_figure": wandb.Image(result_tsne_figure_path)})
+        # wandb.log({"val/tsne_figure": wandb.Image(result_tsne_figure_path)})
         
 
     def configure_optimizers(self):
@@ -223,7 +222,7 @@ class DeepBinModel(pl.LightningModule):
         # remove the cached accuracy here.
         return super().on_epoch_end()
 
-    def log_gmm(self, batch, latent, plotting_contig_list):
+    def log_gmm(self, batch, latent):
         """Use EM algorithm to further train the latent vector and predict the target cluster.
 
         Args:

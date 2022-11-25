@@ -19,7 +19,7 @@ def create_contigs_zarr_dataset(
         # ag_graph_path: str,
         # pe_graph_path: str,
         filter_threshold: int = 1000,
-        long_contig_threshold: int = 1000,
+        # long_contig_threshold: int = 1000,
     ):
     """create long contigs zarr dataset based on contigname file and labels file as filters.
 
@@ -68,28 +68,34 @@ def create_contigs_zarr_dataset(
     rpkm_attrs = rpkm_file[rpkm_attrs_name]
 
     contig_id_list = []
-    long_contig_id_list = []
+    tnf_list = []
+    rpkm_list = []
+    label_list = []
+    # long_contig_id_list = []
     for i in trange(contigname_attrs.shape[0], desc="Preprocessing dataset......"):
         props = contigname_attrs[i].split("_")
         contig_id = int(props[1])
         contig_length = int(props[3])
-        if contig_length >= long_contig_threshold:
-            long_contig_id_list.append(i)
+        # if contig_length >= long_contig_threshold:
+        #     long_contig_id_list.append(i)
         if contig_length >= filter_threshold:
             have_label = False
             for j in range(num_cluster):
                 if contig_id in bin_list[j]:
-                    labels = np.array([j])
+                    labels = j
                     have_label = True
             if have_label is False:
-                labels = np.array([-1]) # Use -1 to hold unlabeled contig (node)
+                labels = -1 # Use -1 to hold unlabeled contig (node)
 
             contig_id_list.append(contig_id)
-            root.create_group(contig_id)
-            root[contig_id]["id"] = np.array([contig_id])
-            root[contig_id]["tnf_feat"] = tnf_attrs[i]
-            root[contig_id]["rpkm_feat"] = rpkm_attrs[i]
-            root[contig_id]["labels"] = labels
+            tnf_list.append(list(tnf_attrs[i]))
+            rpkm_list.append(list(rpkm_attrs[i]))
+            label_list.append(labels)
+            # root.create_group(contig_id)
+            # root[contig_id]["id"] = np.array([contig_id])
+            # root[contig_id]["tnf_feat"] = tnf_attrs[i]
+            # root[contig_id]["rpkm_feat"] = rpkm_attrs[i]
+            # root[contig_id]["labels"] = labels
             # # add ag graph edges.
             # for index, id in enumerate(ag_graph_contig_id_dict_list):
             #     if contig_id == id:
@@ -102,7 +108,11 @@ def create_contigs_zarr_dataset(
             #         break
 
     root.attrs["contig_id_list"] = contig_id_list
-    root.attrs["long_contig_id_list"] = long_contig_id_list
+    root.attrs["tnf_list"] = tnf_list
+    root.attrs["rpkm_list"] = rpkm_list
+    root.attrs["label_list"] = label_list
+
+    # root.attrs["long_contig_id_list"] = long_contig_id_list
 
 
 class PreprocessManager:
@@ -116,7 +126,7 @@ class PreprocessManager:
         # ag_graph_path: str,
         # pe_graph_path: str,
         filter_threshold: int = 1000,
-        long_contig_threshold: int = 1000,
+        # long_contig_threshold: int = 1000,
         **kwargs,
     ):
         self.output_zarr_path = output_zarr_path
@@ -127,7 +137,7 @@ class PreprocessManager:
         # self.ag_graph_path = ag_graph_path
         # self.pe_graph_path = pe_graph_path
         self.filter_threshold = filter_threshold
-        self.long_contig_threshold = long_contig_threshold
+        # self.long_contig_threshold = long_contig_threshold
 
     def preprocess(self):
         # original_contignames = np.load(self.contigname_path)['arr_0']
@@ -150,7 +160,7 @@ class PreprocessManager:
             # ag_graph_path=self.ag_graph_path,
             # pe_graph_path=self.pe_graph_path,
             filter_threshold=self.filter_threshold,
-            long_contig_threshold=self.long_contig_threshold,
+            # long_contig_threshold=self.long_contig_threshold,
         )
         describe_dataset(processed_zarr_dataset_path=self.output_zarr_path)
         # os.remove('tmp_contignames.npz')
@@ -175,5 +185,5 @@ if __name__ == "__main__":
     # flags.DEFINE_string("ag_graph_path", "", "")
     # flags.DEFINE_string("pe_graph_path", "", "")
     flags.DEFINE_integer("filter_threshold", 1000, "")
-    flags.DEFINE_integer("long_contig_threshold", 1000, "")
+    # flags.DEFINE_integer("long_contig_threshold", 1000, "")
     app.run(main)
