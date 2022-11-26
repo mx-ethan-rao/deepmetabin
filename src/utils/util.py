@@ -10,7 +10,11 @@ from scipy import sparse
 from src.utils.plot import update_graph_labels, COLOUR_DICT
 from src.utils.metric import Metric
 from sklearn.manifold import TSNE
-from mingxing.test_label_propagation import lbp
+from sklearn import datasets
+from sklearn.semi_supervised import LabelPropagation
+from sklearn.utils.extmath import safe_sparse_dot
+from sklearn.exceptions import ConvergenceWarning
+import warnings
 
 
 class Gaussian:
@@ -804,16 +808,21 @@ def create_matrix(data_list, contig_list, labels_array=None, option="normal"):
 
 def label_propagation(labels_array, pre_compute_matrix):
     label_prop_model = lbp(n_jobs=50)
-    print(5)
+    # print(5)
     divide = np.sum(pre_compute_matrix, axis=1)
-    print(6)
+    # print(6)
     divide = np.where(divide == 0.0, 1e-18, divide)
-    print(7)
-    divide = np.expand_dims(divide, 1)
-    print(8)
-    pre_compute_matrix = pre_compute_matrix / divide.repeat(pre_compute_matrix.shape[0], 1)
+    # print(7)
+    # divide = np.expand_dims(divide, 1)
+    # print(8)
+    # pre_compute_matrix = pre_compute_matrix / divide.repeat(pre_compute_matrix.shape[0], 1)
+    pre_compute_matrix = pre_compute_matrix/ divide
+    pre_compute_matrix = sparse.csr_matrix(pre_compute_matrix)
     print('lbp start')
+    # import time
+    # tic = time.perf_counter()
     labels_array = label_prop_model.fit(pre_compute_matrix, labels_array)
+    # print(time.perf_counter() - tic)
     return labels_array
 
 
@@ -882,3 +891,107 @@ def zscore(array, axis=None, inplace=False):
         return None
     else:
         return (array - mean) / std
+
+class lbp(LabelPropagation):
+    def __init__(self, kernel='rbf', *, gamma=20, n_neighbors=3, max_iter=1000, tol=0.001, n_jobs=None):
+        super().__init__(kernel=kernel, gamma=gamma, n_neighbors=n_neighbors, max_iter=max_iter, tol=tol, n_jobs=n_jobs)
+
+    def fit(self, X, y):
+        """Fit a semi-supervised label propagation model based
+
+        All the input data is provided matrix X (labeled and unlabeled)
+        and corresponding label matrix y with a dedicated marker value for
+        unlabeled samples.
+
+        Parameters
+        ----------
+        X : array-like of pre-computed matrix (n_samples, n_samples)
+
+        y : array-like of shape (n_samples,)
+            `n_labeled_samples` (unlabeled points are marked as -1)
+            All unlabeled samples will be transductively assigned labels.
+
+        Returns
+        -------
+        self : object
+        """
+        # X, y = self._validate_data(X, y)
+        # self.X_ = X
+        # check_classification_targets(y)
+
+        # actual graph construction (implementations should override this)
+        graph_matrix = X
+        # graph_matrix = self._build_graph()
+
+        # label construction
+        # construct a categorical distribution for classification only
+        classes = np.unique(y)
+        classes = (classes[classes != -1])
+        self.classes_ = classes
+
+        n_samples, n_classes = len(y), len(classes)
+
+        alpha = self.alpha
+        if self._variant == 'spreading' and \
+                (alpha is None or alpha <= 0.0 or alpha >= 1.0):
+            raise ValueError('alpha=%s is invalid: it must be inside '
+                             'the open interval (0, 1)' % alpha)
+        y = np.asarray(y)
+        unlabeled = y == -1
+
+        # initialize distributions
+        self.label_distributions_ = np.zeros((n_samples, n_classes))
+        for label in classes:
+            self.label_distributions_[y == label, classes == label] = 1
+
+        y_static = np.copy(self.label_distributions_)
+        if self._variant == 'propagation':
+            # LabelPropagation
+            y_static[unlabeled] = 0
+        else:
+            # LabelSpreading
+            y_static *= 1 - alpha
+
+        l_previous = np.zeros((X.shape[0], n_classes))
+
+        unlabeled = unlabeled[:, np.newaxis]
+        # if sparse.isspmatrix(graph_matrix):
+        #     graph_matrix = graph_matrix.tocsr()
+
+        for self.n_iter_ in trange(self.max_iter, desc="Label Propogation..."):
+            if np.abs(self.label_distributions_ - l_previous).sum() < self.tol:
+                break
+            l_previous = self.label_distributions_
+            self.label_distributions_ = sparse.csr_matrix(self.label_distributions_)
+            self.label_distributions_ = safe_sparse_dot(
+                graph_matrix, self.label_distributions_)
+            self.label_distributions_ = self.label_distributions_.toarray()
+            if self._variant == 'propagation':
+                normalizer = np.sum(
+                    self.label_distributions_, axis=1)[:, np.newaxis]
+                normalizer = np.where(normalizer == 0.0, 1e-18, normalizer)
+                self.label_distributions_ /= normalizer
+                self.label_distributions_ = np.where(unlabeled,
+                                                     self.label_distributions_,
+                                                     y_static)
+
+            else:
+                # clamp
+                self.label_distributions_ = np.multiply(
+                    alpha, self.label_distributions_) + y_static
+        else:
+            warnings.warn(
+                'max_iter=%d was reached without convergence.' % self.max_iter,
+                category=ConvergenceWarning
+            )
+            self.n_iter_ += 1
+
+        normalizer = np.sum(self.label_distributions_, axis=1)[:, np.newaxis]
+        normalizer[normalizer == 0] = 1
+        self.label_distributions_ /= normalizer
+
+        # set the transduction item
+        transduction = self.classes_[np.argmax(self.label_distributions_,
+                                               axis=1)]
+        self.transduction_ = transduction.ravel()
+        return self.transduction_

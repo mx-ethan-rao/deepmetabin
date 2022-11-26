@@ -69,25 +69,32 @@ class lbp(LabelPropagation):
         l_previous = np.zeros((X.shape[0], n_classes))
 
         unlabeled = unlabeled[:, np.newaxis]
-        if sparse.isspmatrix(graph_matrix):
-            graph_matrix = graph_matrix.tocsr()
+        # if sparse.isspmatrix(graph_matrix):
+        #     graph_matrix = graph_matrix.tocsr()
 
         for self.n_iter_ in range(self.max_iter):
             if np.abs(self.label_distributions_ - l_previous).sum() < self.tol:
                 break
-
+            print(f"iter{self.n_iter_}")
             l_previous = self.label_distributions_
+            self.label_distributions_ = sparse.csr_matrix(self.label_distributions_)
             self.label_distributions_ = safe_sparse_dot(
                 graph_matrix, self.label_distributions_)
-
+            self.label_distributions_ = self.label_distributions_.toarray()
+            print(f"iter{self.n_iter_} 1")
             if self._variant == 'propagation':
                 normalizer = np.sum(
                     self.label_distributions_, axis=1)[:, np.newaxis]
+                print(f"iter{self.n_iter_} 2")
                 normalizer = np.where(normalizer == 0.0, 1e-18, normalizer)
+                print(f"iter{self.n_iter_} 3")
                 self.label_distributions_ /= normalizer
+                print(f"iter{self.n_iter_} 4")
                 self.label_distributions_ = np.where(unlabeled,
                                                      self.label_distributions_,
                                                      y_static)
+                print(f"iter{self.n_iter_} 5")
+
             else:
                 # clamp
                 self.label_distributions_ = np.multiply(

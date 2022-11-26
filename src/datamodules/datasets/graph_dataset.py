@@ -86,7 +86,7 @@ class KNNGraphDataset(Dataset):
         cluster_result = self.dbscan.fit(pre_compute_matrix)
         labels_array = cluster_result.labels_
         print('finish dbscan')
-        labels_array = label_propagation(labels_array, create_matrix(data_list=data_list, contig_list=contig_id_list, labels_array=labels_array, option='sparse').toarray())
+        labels_array = label_propagation(labels_array, create_matrix(data_list=data_list, contig_list=contig_id_list, labels_array=labels_array, option='sparse'))
         # labels_array = label_propagation(labels_array, pre_compute_matrix)
         print('finish lbp')
         data_list, labels_array = remove_ambiguous_label(data_list, labels_array, contig_id_list)
@@ -98,11 +98,6 @@ class KNNGraphDataset(Dataset):
             data_list=data_list,
             labels_array=labels_array,
         )
-        # plotting_contig_list = []
-        # for data, label in zip(data_list, labels_array):
-        #     if label in [13, 5, 14, 3, 4]:
-        #         plotting_contig_list.append(data['id'])
-
         plotting_graph_size = 1000
         plotting_contig_list = contig_id_list[:plotting_graph_size]
 
@@ -120,8 +115,13 @@ class KNNGraphDataset(Dataset):
             plotting_contig_list=plotting_contig_list,
             bin_list=bin_list,
         )
-        
-        data_list = self.filter_knn_graph(data_list)
+        print("finish plot_graph")    
+        # import time
+        # tic = time.perf_counter()
+        # data_list = self.filter_knn_graph(data_list)
+        data_list = self.neighbor_graph_to_training_set(data_list, contig_id_list, self.k)
+        # print(time.perf_counter() - tic)
+        print('finish fiter_knn_graph')
         return data_list
 
     def generate_must_link(self, data_list, output=''):
@@ -146,17 +146,6 @@ class KNNGraphDataset(Dataset):
         label_list = root.attrs["label_list"]
 
         data_list = []
-        # rkpm_array = []
-        # tnf_array = []
-        # all_labels = []
-        # all_contig_id = []
-        # for i in contig_id_list:
-        #     print(i)
-            # data = root[i]
-            # rkpm_array.append(data["rpkm_feat"])
-            # tnf_array.append(data["tnf_feat"])
-            # all_labels.append(np.array(data["labels"]))
-            # all_contig_id.append(np.array(data["id"]))
         rkpm_array = np.array(rpkm_list, dtype="float32")
         tnf_array = np.array(tnf_list, dtype="float32")
 
@@ -165,7 +154,7 @@ class KNNGraphDataset(Dataset):
             zscore(rkpm_array, axis=0, inplace=True)
         zscore(tnf_array, axis=1, inplace=True)
         all_feature = np.concatenate((tnf_array, rkpm_array), axis=1)
-        for i in tqdm(contig_id_list):
+        for i in tqdm(contig_id_list, desc="Loading data..."):
             item = {}
             idx = contig_id_list.index(i)
             feature = all_feature[idx]
@@ -197,11 +186,9 @@ class KNNGraphDataset(Dataset):
             id_list.append(data_list[i]["id"])
         
         feature_array = np.array(feature_list, dtype="float32")
-        # id_array = np.array(id_list)
         nbrs = NearestNeighbors(n_neighbors=k+1, algorithm='auto',  metric='euclidean', n_jobs=50).fit(feature_array)
         distances, indices = nbrs.kneighbors(feature_array)
-        # TODO: remove feature_array.shape[0] by using N.
-        for i in trange(feature_array.shape[0], desc="Creating KNN graph using DBSCAN......."):
+        for i in trange(feature_array.shape[0], desc="Creating KNN graph..."):
             neighbors_array = indices[i][1:]
             distance_array = np.power(distances[i][1:], 2)
             invalid_idx = np.where(distance_array >= threshold)
@@ -212,79 +199,32 @@ class KNNGraphDataset(Dataset):
             data_list[i]["distances"] = np.float32(distance_array)
         return data_list
 
-    def filter_knn_graph(self, data_list):
-        # filter the knn graph and create neighbor features and neighbors mask instead.
-        id_list = []
-        feature_list = []
-        for i in range(len(data_list)):
-            feature_list.append(data_list[i]["feature"])
-            id_list.append(data_list[i]["id"])
 
-        feature_array = np.array(feature_list)
-        id_array = np.array(id_list)
+    def neighbor_graph_to_training_set(self, data_list, contig_id_list, k):
+        # filter the knn graph and create neighbor features and neighbors mask instead.
         node_num = len(data_list)
         gau = Gaussian(sigma=1.0)
+        featre_shape = data_list[0]["feature"].shape
 
-        for i in range(node_num):
+        for i in trange(node_num, desc="Generate neighbor trainning set..."):
             neighbors_array = data_list[i]["neighbors"]
             weights_array = data_list[i]["distances"]
             del data_list[i]["neighbors"]
             del data_list[i]["distances"]
             neighbors_num = neighbors_array.shape[0]
-            neighbor_feature_list = []
-            neighbor_weight_list = []
-            # hardcode k = 3 here.
-            if neighbors_num == 3:
-                for index in range(3):
-                    neighbor_id = int(neighbors_array[index])
-                    for j in range(feature_array.shape[0]):
-                        if int(id_array[j]) == neighbor_id:
-                            neighbor_feature_list.append(feature_array[j])
-                neighbors_feature = np.stack(neighbor_feature_list, axis=0)
-                neighbors_feature_mask = np.array([1.0, 1.0, 1.0])
-                
-                # Calculate the neighbor weights array here:
-                neighbors_weight = weights_array
-                neighbors_weight = gau.cal_coefficient(neighbors_weight)
-                updated_neighbor_weight = softmax(neighbors_weight)
-            elif neighbors_num == 2:
-                for index in range(2):
-                    neighbor_id = int(neighbors_array[index])
-                    for j in range(feature_array.shape[0]):
-                        if int(id_array[j]) == neighbor_id:
-                            neighbor_feature_list.append(feature_array[j])
-                    neighbor_weight_list.append(weights_array[index])
-                neighbor_feature_list.append(np.zeros_like(neighbor_feature_list[0]))
-                neighbors_feature = np.stack(neighbor_feature_list, axis=0)
-                neighbors_feature_mask = np.array([1.0, 1.0, 0.0])
-                
-                # Calculate the neighbor weights array here:
-                neighbors_weight = weights_array
-                neighbors_weight = gau.cal_coefficient(neighbors_weight)
-                updated_neighbor_weight = softmax(neighbors_weight)
-                updated_neighbor_weight = np.concatenate((updated_neighbor_weight, np.array([0.0])), axis=0)
+            neighbors_indices = [contig_id_list.index(neigh_id) for neigh_id in neighbors_array]
+            neighbors_feature = [data_list[neigh_idx]["feature"] for neigh_idx in neighbors_indices]
+            neighbors_feature.extend([np.zeros(featre_shape, dtype="float32") for _ in range(k - neighbors_num)])
+            if neighbors_num == 0:
+                neighbors_weight = np.array([0.0, 0.0, 0.0], dtype="float32")
             elif neighbors_num == 1:
-                for index in range(1):
-                    neighbor_id = int(neighbors_array[index])
-                    for j in range(feature_array.shape[0]):
-                        if int(id_array[j]) == neighbor_id:
-                            neighbor_feature_list.append(feature_array[j])
-                    neighbor_weight_list.append(weights_array[index])
-                neighbor_feature_list.append(np.zeros_like(neighbor_feature_list[0]))
-                neighbor_feature_list.append(np.zeros_like(neighbor_feature_list[0]))
-                neighbors_feature = np.stack(neighbor_feature_list, axis=0)
-                neighbors_feature_mask = np.array([1.0, 0.0, 0.0])        
-                
-                # Calculate the neighbor weights array here:
-                updated_neighbor_weight = np.array([1.0, 0.0, 0.0])
+                neighbors_weight = np.array([1.0, 0.0, 0.0], dtype="float32")
             else:
-                for index in range(3):
-                    neighbor_feature_list.append(np.zeros_like(feature_array[0]))
-                neighbors_feature = np.stack(neighbor_feature_list, axis=0)
-                neighbors_feature_mask = np.array([0.0, 0.0, 0.0])
-                updated_neighbor_weight = np.array([0.0, 0.0, 0.0])
-            data_list[i]["neighbors_feature"] = neighbors_feature
-            data_list[i]["neighbors_feature_mask"] = neighbors_feature_mask
-            data_list[i]["neighbors_weight"] = updated_neighbor_weight
+                neighbors_weight = gau.cal_coefficient(weights_array)
+                neighbors_weight = softmax(neighbors_weight)
+                neighbors_weight = np.concatenate((neighbors_weight, np.array([0.0] * (k - neighbors_num), dtype="float32")), axis=0)
+            data_list[i]["neighbors_feature"] = np.stack(neighbors_feature)
+            data_list[i]["neighbors_feature_mask"] = np.array([1.0] * neighbors_num + [0.0] * (k - neighbors_num), dtype="float32")
+            data_list[i]["neighbors_weight"] = neighbors_weight
         return data_list
 
