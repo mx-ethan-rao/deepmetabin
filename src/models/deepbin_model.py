@@ -183,7 +183,7 @@ class DeepBinModel(pl.LightningModule):
             result_bin_list=result_bin_list,
         )
         """
-        if self.current_epoch < 0:
+        if self.current_epoch < 100:
             self.use_gmm = False
         else:
             self.use_gmm = True
