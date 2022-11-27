@@ -185,6 +185,7 @@ class DeepBinModel(pl.LightningModule):
         """
         if self.current_epoch < 100:
             self.use_gmm = False
+            self.log("val/gmm_F1", -1, on_step=False, on_epoch=True, prog_bar=False)
         else:
             self.use_gmm = True
         # add gmm to the latent vector, wrap a function here.
