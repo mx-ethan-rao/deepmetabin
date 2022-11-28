@@ -275,10 +275,11 @@ class DeepBinModel(pl.LightningModule):
 
     def if_stop(self, f1, current_epoch, global_step):
         patience = 33
+        max_epoch = 300
         self.epoch_list.append((f1, current_epoch, global_step))
         current_best = max(self.epoch_list, key=lambda elem: elem[0])
         best_idx = self.epoch_list.index(current_best)
-        if len(self.epoch_list) - best_idx - 1 >= patience:
+        if (len(self.epoch_list) - best_idx - 1 >= patience) or (current_epoch >= max_epoch):
             import os
             os.rename("{}/latent_{}_{}.npy".format(self.latent_save_path, current_best[1], current_best[2]), \
                 "{}/latent_{}_{}_best.npy".format(self.latent_save_path, current_best[1], current_best[2]))
