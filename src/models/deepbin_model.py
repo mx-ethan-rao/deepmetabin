@@ -185,7 +185,7 @@ class DeepBinModel(pl.LightningModule):
         """
         if self.current_epoch < 100:
             self.use_gmm = False
-            self.log("val/gmm_F1", -1, on_step=False, on_epoch=True, prog_bar=False)
+            self.log("val/gmm_F1", 0.5, on_step=False, on_epoch=True, prog_bar=False)
         else:
             self.use_gmm = True
         # add gmm to the latent vector, wrap a function here.
@@ -280,6 +280,7 @@ class DeepBinModel(pl.LightningModule):
         current_best = max(self.epoch_list, key=lambda elem: elem[0])
         best_idx = self.epoch_list.index(current_best)
         if (len(self.epoch_list) - best_idx - 1 >= patience) or (current_epoch >= max_epoch):
+        # if len(self.epoch_list) - best_idx - 1 >= patience:
             import os
             os.rename("{}/latent_{}_{}.npy".format(self.latent_save_path, current_best[1], current_best[2]), \
                 "{}/latent_{}_{}_best.npy".format(self.latent_save_path, current_best[1], current_best[2]))

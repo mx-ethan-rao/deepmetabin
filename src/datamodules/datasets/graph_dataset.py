@@ -93,29 +93,28 @@ class KNNGraphDataset(Dataset):
         print('finish remove_ambiguous_label')
         self.generate_must_link(data_list, output=self.must_link_path)
         # ----------------for debug only-----------
-        # self.export_csv(data_list, labels_array)
-        bin_list = summary_bin_list_from_array1(
-            data_list=data_list,
-            labels_array=labels_array,
-        )
-        plotting_graph_size = 1000
-        plotting_contig_list = contig_id_list[:plotting_graph_size]
+        # bin_list = summary_bin_list_from_array1(
+        #     data_list=data_list,
+        #     labels_array=labels_array,
+        # )
+        # plotting_graph_size = 1000
+        # plotting_contig_list = contig_id_list[:plotting_graph_size]
 
-        knn_graph = construct_knn_graph1(
-                data_list=data_list,
-                plotting_graph_size=plotting_graph_size,
-                plotting_contig_list=plotting_contig_list,
-                k=3,
-            )
+        # knn_graph = construct_knn_graph1(
+        #         data_list=data_list,
+        #         plotting_graph_size=plotting_graph_size,
+        #         plotting_contig_list=plotting_contig_list,
+        #         k=3,
+        #     )
 
-        plot_knn_graph1(
-            graph=knn_graph,
-            log_path='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/graphs',
-            graph_type=os.path.basename(os.path.dirname(self.must_link_path)),
-            plotting_contig_list=plotting_contig_list,
-            bin_list=bin_list,
-        )
-        print("finish plot_graph")    
+        # plot_knn_graph1(
+        #     graph=knn_graph,
+        #     log_path='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/graphs',
+        #     graph_type=os.path.basename(os.path.dirname(self.must_link_path)),
+        #     plotting_contig_list=plotting_contig_list,
+        #     bin_list=bin_list,
+        # )
+        # print("finish plot_graph")    
         # import time
         # tic = time.perf_counter()
         # data_list = self.filter_knn_graph(data_list)
