@@ -3,7 +3,7 @@
 
 <div align="center">
 
-# Metagenomic Binning
+# DeepMetaBin for Metagenomic Binning
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
@@ -14,7 +14,7 @@
 
 ## Description
 
-This repo contains implementations of four methods of metagenomic binning so-called GMAVE, DeepBin, GMGAT. Will integrate the GMGAT-Bert and vamb model as feature engineering components later. DeepBin and GMVAE shared same datamodule and lightningmoudle, only difference is reconstructing neighbrs in training_step.
+This repo contains implementations of deep learning method of metagenomic binning so-called DeepMetaBin,
 
 The code repository is organized into the following components:
 | Component | Description |
@@ -25,11 +25,6 @@ The code repository is organized into the following components:
 | [configs](https://github.com/eddiecong/Test-binning/tree/main/configs) | Contains hydra based config files to control the experiments across differernt models. |
 
 
-## To Do List:
-- :white_check_mark: warp up deepbin models.
-- :white_check_mark: update GMGAT proposal models.
-- :black_square_button: warp up graph bert models.
-- :black_square_button: warp up repbin models.
 
 ## How to run
 
