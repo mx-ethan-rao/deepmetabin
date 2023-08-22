@@ -53,6 +53,8 @@ pip install -r requirements.txt
 
 ## Preprocess Dataset From Scratch:
 ```
+bwa index my_contigs.fna 
+bwa mem contigs.fasta reads_file_1 reads_file_2 -t 100 | samtools sort -@ 40 -n -o contigs.map.sorted.bam
 python preprocessing --outdir out --fasta my_contigs.fna --bamfiles *.bam
 ```
 
