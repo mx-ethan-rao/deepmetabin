@@ -60,8 +60,4 @@ python preprocessing --outdir out --fasta my_contigs.fna --bamfiles *.bam
 
 ```bash
 python run.py trainer.gpus=1 model.outpath deepmetabin_out datamodule.zarr_dataset_path
-
-
-
-
-
+```
