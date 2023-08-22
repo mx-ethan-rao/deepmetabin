@@ -37,8 +37,8 @@ Install dependencies
 
 ```bash
 # clone project
-git clone https://github.com/eddiecong/Metagenomic-Binning.git
-cd Metagenomic-Binning
+git clone https://github.com/mx-ethan-rao/deepmetabin.git
+cd deepmetabin
 
 # [OPTIONAL] create conda environment
 conda create -n myenv python=3.9
@@ -51,30 +51,17 @@ conda activate myenv
 pip install -r requirements.txt
 ```
 
-Train model with default configuration
-
-```bash
-# train on CPU
-python run.py trainer.gpus=0
-
-# train on GPU
-python run.py trainer.gpus=1
-```
-
-Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
-
-```bash
-python run.py experiment=train_gmgat.yaml
-```
-
-You can override any parameter from command line like this
-
-```bash
-python run.py trainer.max_epochs=20
-```
-
 ## Preprocess Dataset From Scratch:
 ```
 python preprocessing --outdir out --fasta my_contigs.fna --bamfiles *.bam
 ```
+
+## Train model with default configuration
+
+```bash
+python run.py trainer.gpus=1 model.outpath deepmetabin_out datamodule.zarr_dataset_path
+
+
+
+
 
