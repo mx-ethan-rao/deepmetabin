@@ -75,22 +75,6 @@ python run.py trainer.max_epochs=20
 
 ## Preprocess Dataset From Scratch:
 ```
-python preprocess.py --output_zarr_path YOUR_PATH --contigname_path CONTIGNAME_PATH 
-                     --labels_path LABELS_PATH --tnf_feature_path TNF_FEATURE_PATH
-                     --rpkm_feature_path RPKM_FEATURE_PATH --ag_graph_path AG_PATH
-                     --pe_graph_path PE_PATH --filter_threshold 1000
+python preprocessing --outdir out --fasta my_contigs.fna --bamfiles *.bam
 ```
 
-## Evaluate Different Method Performance:
-```
-python evaluate.py --gd_labels_path GD_LABELS_PATH --result_labels_path RESULT_LABELS_PATH 
-                     --dataset_name DATASET_NAME --method_name METHOD_NAME
-```
-
-## Extract the shared feature from ag and pe graph:
-```
-python pre_feature_extraction.py --zarr_dataset_path ZARR_DATASET_PATH --batch_size BATCH_SIZE 
-                     --model_save_path MODEL_SAVE_PATH --train_epochs TRAIN_EPOCHS --feature_length
-                     FEATURE_LENGTH --learning_rate LEARNING_RATE --weight_decay WEIGHT_DECAY
-                     --weight_ag_graph WEIGHT_AG_GRAPH --weight_pe_graph WEIGHT_PE_GRAPH
-```
