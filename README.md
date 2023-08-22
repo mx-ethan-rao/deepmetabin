@@ -19,8 +19,8 @@ This repo contains implementations of four methods of metagenomic binning so-cal
 The code repository is organized into the following components:
 | Component | Description |
 | --- | --- |
-| [datamodules](https://github.com/eddiecong/Test-binning/tree/main/src/datamodules) | Contains torch dataset objects and pl.LightningDataModules for gmave, deepbin, pure gmgat methods. |
-| [models](https://github.com/eddiecong/Test-binning/tree/main/src/models) | Contains torch module objects and pl.LightningModules for gmvae, deepbin, pure gmgat methos. |
+| [datamodules](https://github.com/eddiecong/Test-binning/tree/main/src/datamodules) | Contains torch dataset objects and pl.LightningDataModules for gmave, deepbin |
+| [models](https://github.com/eddiecong/Test-binning/tree/main/src/models) | Contains torch module objects and pl.LightningModules for gmvae, deepbin |
 | [utils](https://github.com/eddiecong/Test-binning/tree/main/src/utils) | Contains util functions in the project, shared visualization and evaluation functions across different model backbones. |
 | [configs](https://github.com/eddiecong/Test-binning/tree/main/configs) | Contains hydra based config files to control the experiments across differernt models. |
 
