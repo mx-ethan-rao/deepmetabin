@@ -16,13 +16,13 @@ clean(){
 
 
 cd $(dirname $0)
-multisample_name=cami2_skin
-contig_dir=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/spades/Skin
-concat_tnf=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/vamb/vamb_out/tnf.npz
-concat_rkpm=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/vamb/vamb_out/rpkm.npz
-concat_contignames=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/vamb/vamb_out/contignames.npz
-concat_label=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/vamb/labels/labels.csv
-out=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/deepmetabin
+multisample_name=cami2_Oral
+contig_dir=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/spades/Oral
+concat_tnf=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/tnf.npz
+concat_rkpm=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/rpkm.npz
+concat_contignames=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/contignames.npz
+concat_label=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/labels/labels.csv
+out=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/deepmetabin
 
 mkdir -p $(dirname $0)/data/$multisample_name
 contigs=`ls $contig_dir/*/contigs.fasta`
@@ -30,7 +30,7 @@ contigs=`ls $contig_dir/*/contigs.fasta`
 source /home/comp/zmzhang/software/anaconda3/bin/activate base
 
 if [ ! $1 ];then
-    python /datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/fixed_codes/split_samples.py \
+    python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/split_samples.py \
         $contigs \
         --concat_tnf $concat_tnf \
         --concat_rkpm $concat_rkpm \
@@ -73,7 +73,7 @@ for sample_path in $sample_paths; do
         #     --rpkm_feature_path $sample_path/rpkm.npz \
         #     --filter_threshold 1000
 
-        export num_classes=`python /datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/fixed_codes/calculate_bin_num.py \
+        export num_classes=`python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/calculate_bin_num.py \
                                 --fasta  $sample_path/contigs.fasta \
                                 --binned_length 1000 \
                                 --output $sample_path`

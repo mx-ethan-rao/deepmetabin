@@ -16,7 +16,7 @@ source /home/comp/zmzhang/software/anaconda3/bin/activate base
 export PATH=/home/comp/zmzhang/code:$PATH
 
 cd $(dirname $0)
-root_path=/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI2/binning_results/Skin/deepmetabin
+root_path=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/deepmetabin
 
 export sample_paths=`ls -d $root_path/S*`
 mkdir -p $root_path/post_bins
@@ -36,13 +36,13 @@ for sample_path in $sample_paths; do
     read p_idx <&4
     # 这里的 & 会开启一个子进程执行
     {
-        export num_classes=`python /datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/fixed_codes/calculate_bin_num.py \
+        export num_classes=`python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/calculate_bin_num.py \
                                 --fasta  $sample_path/contigs.fasta \
                                 --binned_length 1000 \
                                 --output $sample_path`
 
         latent_path=`realpath $sample_path/latents/latent_*best.npy`
-        python /datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/fixed_codes/vamb_the_gmm.py \
+        python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/vamb_the_gmm.py \
             --latent_path $latent_path \
             --contignames_path $sample_path/contignames.npz \
             --output_csv_path $sample_path/gmm.csv \
@@ -54,7 +54,7 @@ for sample_path in $sample_paths; do
         checkm lineage_wf -t 100 -x fasta --tab_table -f checkm.tsv ./ ./
         cd ..
         source /home/comp/zmzhang/software/anaconda3/bin/activate SemiBin
-        python /datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/fixed_codes/post_cluster_processing.py \
+        python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/post_cluster_processing.py \
             --fasta_path gmm_bins \
             --orignal_binning_file gmm.csv \
             --contig_path contignames.npz \
