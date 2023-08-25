@@ -26,11 +26,13 @@ The code repository is organized into the following components:
 <p align="center"><img src="./pictures/Poster_Recomb_2023.png" width=90% height=50%></p>
 <p align="center"><em>Figure.</em> Poster Recomb 2023.</p>
 
-TODO:
 
-- [ ] Update the Project Page of DeepMetaBin.
-- [ ] Released the arXiv version of DeepMetaBin (Under review).
-- [x] Released the early version of sample code.
+
+## To Do List:
+- :black_square_button: Update the Project Page of DeepMetaBin.
+- :black_square_button: Released the arXiv version of DeepMetaBin (Under review).
+- :white_check_mark: Released the early version of sample code.
+
 
 ## How to run
 
@@ -64,3 +66,9 @@ python preprocessing --outdir out --fasta my_contigs.fna --bamfiles *.bam
 ```bash
 python run.py trainer.gpus=1 model.outpath deepmetabin_out datamodule.zarr_dataset_path
 ```
+
+## Reference Code
+
+- https://github.com/ashleve/lightning-hydra-template
+- https://github.com/samtools/samtools
+- https://github.com/lh3/bwa
