@@ -8,7 +8,6 @@
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
 <a href="https://hydra.cc/"><img alt="Config: Hydra" src="https://img.shields.io/badge/Config-Hydra-89b8cd"></a>
-<a href="https://app.codiga.io/"><img alt="Code Grade" src="https://api.codiga.io/project/33753/status/svg"></a>
 <a href="https://github.com/ashleve/lightning-hydra-template"><img alt="Template" src="https://img.shields.io/badge/-Lightning--Hydra--Template-017F2F?style=flat&logo=github&labelColor=gray"></a><br>
 </div>
 
@@ -19,12 +18,19 @@ This repo contains implementations of deep learning method of metagenomic binnin
 The code repository is organized into the following components:
 | Component | Description |
 | --- | --- |
-| [datamodules](https://github.com/eddiecong/Test-binning/tree/main/src/datamodules) | Contains torch dataset objects and pl.LightningDataModules for gmave, deepbin |
-| [models](https://github.com/eddiecong/Test-binning/tree/main/src/models) | Contains torch module objects and pl.LightningModules for gmvae, deepbin |
-| [utils](https://github.com/eddiecong/Test-binning/tree/main/src/utils) | Contains util functions in the project, shared visualization and evaluation functions across different model backbones. |
-| [configs](https://github.com/eddiecong/Test-binning/tree/main/configs) | Contains hydra based config files to control the experiments across differernt models. |
+| [datamodules](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/src/datamodules) | Contains torch dataset objects and pl.LightningDataModules for Graph embeded GMVAE in DeepMetaBin|
+| [models](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/src/models) | Contains torch module objects and pl.LightningModules for gmvae, deepbin |
+| [utils](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/src/utils) | Contains util functions in the project, shared visualization and evaluation functions across different model backbones. |
+| [configs](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/configs) | Contains hydra based config files to control the experiments across differernt models. |
 
+<p align="center"><img src="./pictures/Poster_Recomb_2023.png" width=90% height=50%></p>
+<p align="center"><em>Figure.</em> Poster Recomb 2023.</p>
 
+TODO:
+
+- [ ] Update the Project Page of DeepMetaBin.
+- [ ] Released the arXiv version of DeepMetaBin (Under review).
+- [x] Released the early version of sample code.
 
 ## How to run
 
