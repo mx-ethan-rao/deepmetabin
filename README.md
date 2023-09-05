@@ -35,10 +35,15 @@ The code repository is organized into the following components:
 
 ## Software requirements
 * [Gurobi](https://anaconda.org/Gurobi/gurobi) (need to request for license)
-* [bwe](https://github.com/lh3/bwa)
-* [samtools](https://github.com/samtools/samtools)
-* [checkM](https://github.com/Ecogenomics/CheckM)
+* [bwa>=0.7.17](https://github.com/lh3/bwa)
+* [samtools>=1.9](https://github.com/samtools/samtools)
+* [checkM>=1.1.2](https://github.com/Ecogenomics/CheckM)
 
+## Examples and experiments run on a Linux server with the following specifications:
+* Dell PowerEdge R6525
+* CPU: Dual 64-core AMD EPYC 7742 2.25GHz 256MB L3 cache
+* Memory:1T
+* Operating System: Oracle Linux 8.7 (64-bit)
 
 ## Installation (estimated time: 10min)
 
@@ -68,7 +73,7 @@ python preprocessing.py --outdir /path/to/out --fasta my_contigs.fna --bamfiles 
 ```
 
 ### Preprocess Dataset from sample data (estimated running time for samle data: 1h)
-Please download the sample dataset [sample_data]() and put it under deepmetabin folder
+Please download the sample dataset [sample_data](https://drive.google.com/drive/folders/1G8Wlws3HT4BtrBWG_KZk8w755MICpQXI?usp=sharing) and put it under deepmetabin folder
 ```bash
 python preprocessing.py --outdir out --fasta ./sample_data/contigs.fasta --bamfiles ./sample_data/contigs.map.sorted.bam --label_path ./sample_data/labels.csv
 ```
