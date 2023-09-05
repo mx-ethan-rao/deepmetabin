@@ -40,7 +40,7 @@ The code repository is organized into the following components:
 * [checkM](https://github.com/Ecogenomics/CheckM)
 
 
-## Installation (estimated tie: 10min)
+## Installation (estimated time: 10min)
 
 Install dependencies
 
