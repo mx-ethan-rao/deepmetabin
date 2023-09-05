@@ -34,7 +34,7 @@ The code repository is organized into the following components:
 - :white_check_mark: Released the early version of sample code.
 
 ## Software requirements
-* [Gurobi](https://anaconda.org/Gurobi/gurobi)
+* [Gurobi](https://anaconda.org/Gurobi/gurobi) (need to request for license)
 * [bwe](https://github.com/lh3/bwa)
 * [samtools](https://github.com/samtools/samtools)
 * [checkM](https://github.com/Ecogenomics/CheckM)
@@ -67,7 +67,7 @@ bwa mem contigs.fasta reads_file_1 reads_file_2 -t 100 | samtools sort -@ 40 -n 
 python preprocessing.py --outdir /path/to/out --fasta my_contigs.fna --bamfiles *.bam --label_path /path/to/label.csv
 ```
 
-### Preprocess Dataset from sample data
+### Preprocess Dataset from sample data (estimated running time for samle data: 1h)
 Please download the sample dataset [sample_data]() and put it under deepmetabin folder
 ```bash
 python preprocessing.py --outdir out --fasta ./sample_data/contigs.fasta --bamfiles ./sample_data/contigs.map.sorted.bam --label_path ./sample_data/labels.csv
@@ -94,8 +94,6 @@ python preprocessing.py --outdir out --fasta /path/to/catalogue.fna.gz --bamfile
 ```bash
 bash ./bash/run_multisample.sh
 ```
-
-
 
 ## Reference Code
 
