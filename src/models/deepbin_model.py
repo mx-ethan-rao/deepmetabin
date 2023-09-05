@@ -187,7 +187,7 @@ class DeepBinModel(pl.LightningModule):
             self.use_gmm = False
             self.log("val/gmm_F1", 0.5, on_step=False, on_epoch=True, prog_bar=False)
         else:
-            self.use_gmm = True
+            self.use_gmm = False
         # add gmm to the latent vector, wrap a function here.
         if self.use_gmm:
             self.log_gmm(
@@ -269,13 +269,13 @@ class DeepBinModel(pl.LightningModule):
         self.log("val/gmm_recall", gmm_recall, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_F1", gmm_F1, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/gmm_ARI", gmm_ARI, on_step=False, on_epoch=True, prog_bar=False)
-        self.if_stop(gmm_F1, self.current_epoch, self.global_step)
+        # self.if_stop(gmm_F1, self.current_epoch, self.global_step)
         #wandb.log({"val/result_gmm_ag_subgraph": wandb.Image(gmm_result_ag_graph_path)})
         #wandb.log({"val/result_gmm_knn_subgraph": wandb.Image(gmm_result_knn_graph_path)})
 
     def if_stop(self, f1, current_epoch, global_step):
-        patience = 33
-        max_epoch = 300
+        patience = 100
+        max_epoch = 2000
         self.epoch_list.append((f1, current_epoch, global_step))
         current_best = max(self.epoch_list, key=lambda elem: elem[0])
         best_idx = self.epoch_list.index(current_best)

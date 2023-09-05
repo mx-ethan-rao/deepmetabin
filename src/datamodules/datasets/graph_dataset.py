@@ -11,9 +11,9 @@ from sklearn.cluster import DBSCAN
 from torch.utils.data import Dataset
 import os
 import sys
-from visualize_graph import summary_bin_list_from_array as summary_bin_list_from_array1
-from visualize_graph import construct_knn_graph as construct_knn_graph1
-from visualize_graph import plot_knn_graph as plot_knn_graph1
+# from visualize_graph import summary_bin_list_from_array as summary_bin_list_from_array1
+# from visualize_graph import construct_knn_graph as construct_knn_graph1
+# from visualize_graph import plot_knn_graph as plot_knn_graph1
 
 from src.utils.util import (
     Gaussian,
@@ -109,7 +109,7 @@ class KNNGraphDataset(Dataset):
 
         # plot_knn_graph1(
         #     graph=knn_graph,
-        #     log_path='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/graphs',
+        #     log_path='/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/tmp',
         #     graph_type=os.path.basename(os.path.dirname(self.must_link_path)),
         #     plotting_contig_list=plotting_contig_list,
         #     bin_list=bin_list,
@@ -165,7 +165,7 @@ class KNNGraphDataset(Dataset):
             data_list.append(item)
         return data_list, contig_id_list
 
-    def create_knn_graph(self, data_list, k, threshold=6):
+    def create_knn_graph(self, data_list, k, threshold=10):
         """Updates the k nearest neighbors for each contig in the dictionary. 
         
         Alerts: knn graph is created by id vector, stores the neightbors 
