@@ -19,7 +19,7 @@ The code repository is organized into the following components:
 | Component | Description |
 | --- | --- |
 | [datamodules](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/src/datamodules) | Contains torch dataset objects and pl.LightningDataModules for Graph embeded GMVAE in DeepMetaBin|
-| [models](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/src/models) | Contains torch module objects and pl.LightningModules for gmvae, deepbin |
+| [models](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/src/models) | Contains torch module objects and pl.LightningModules for GMVAE, deepbin |
 | [utils](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/src/utils) | Contains util functions in the project, shared visualization and evaluation functions across different model backbones. |
 | [configs](https://github.com/mx-ethan-rao/deepmetabin/tree/multi_sample_finished/configs) | Contains hydra based config files to control the experiments across differernt models. |
 
@@ -34,7 +34,7 @@ The code repository is organized into the following components:
 - :white_check_mark: Released the early version of sample code.
 
 ## Software requirements
-* [Gurobi](https://anaconda.org/Gurobi/gurobi) (need to request for license)
+* [Gurobi>=10.0.1](https://anaconda.org/Gurobi/gurobi) (need to request for license)
 * [bwa>=0.7.17](https://github.com/lh3/bwa)
 * [samtools>=1.9](https://github.com/samtools/samtools)
 * [checkM>=1.1.2](https://github.com/Ecogenomics/CheckM)
@@ -42,7 +42,7 @@ The code repository is organized into the following components:
 ## Examples and experiments run on a Linux server with the following specifications:
 * Dell PowerEdge R6525
 * CPU: Dual 64-core AMD EPYC 7742 2.25GHz 256MB L3 cache
-* Memory:1T
+* Memory: 1T
 * Operating System: Oracle Linux 8.7 (64-bit)
 
 ## Installation (estimated time: 10min)
@@ -84,6 +84,7 @@ labels.csv is not used for training data and will be removed in next version
 ```bash
 python run.py trainer.gpus=1 model.outpath deepmetabin_out datamodule.zarr_dataset_path our/data.zarr
 ```
+The binning result is under ./deepmetabin_out
 
 ## Multiple sample
 ### Preprocess Dataset From Scratch
@@ -105,3 +106,7 @@ bash ./bash/run_multisample.sh
 - https://github.com/ashleve/lightning-hydra-template
 - https://github.com/samtools/samtools
 - https://github.com/lh3/bwa
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
