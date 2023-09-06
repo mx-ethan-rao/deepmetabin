@@ -7,7 +7,7 @@ set -ex
 
 trap clean EXIT SIGTERM
 clean(){
-    # 全部结束后解绑文件描述符并删除管道
+    # Unbind the file descriptor and delete the pipe when all is said and done
     exec 4<&-
     exec 4>&-
     rm -f mylist_$fifoname
@@ -16,13 +16,20 @@ clean(){
 
 
 cd $(dirname $0)
-multisample_name=cami2_Oral
-contig_dir=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/spades/Oral
-concat_tnf=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/tnf.npz
-concat_rkpm=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/rpkm.npz
-concat_contignames=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/contignames.npz
-concat_label=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/labels/labels.csv
-out=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/deepmetabin
+multisample_name=$1
+contig_dir=$2
+concat_tnf=$3
+concat_rkpm=$4
+concat_contignames=$5
+concat_label=$6
+out=$7
+# multisample_name=cami2_Oral
+# contig_dir=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/spades/Oral
+# concat_tnf=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/tnf.npz
+# concat_rkpm=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/rpkm.npz
+# concat_contignames=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/contignames.npz
+# concat_label=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/labels/labels.csv
+# out=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/deepmetabin
 
 mkdir -p $(dirname $0)/data/$multisample_name
 contigs=`ls $contig_dir/*/contigs.fasta`
@@ -47,11 +54,11 @@ fi
 # export sample_paths=`ls -d $out/S*`
 thread_num=20
 
-# 创建一个管道
+# Create a FIFO
 mkfifo mylist_$fifoname
-# 给管道绑定文件描述符4
+# Bind a file descriptor 4 to the FIFO 
 exec 4<>mylist_$fifoname
-# 事先往管道中写入数据，要开启几个子进程就写入多少条数据
+# Write data to the pipeline beforehand, as many times as you want to start a child process.
 for ((i=0; i < $thread_num; i++)); do
     echo $i >&4
 done
@@ -61,7 +68,7 @@ done
 for sample_path in $sample_paths; do
     read p_idx <&4
     sleep 1
-    # 这里的 & 会开启一个子进程执行
+    # The & here opens a child process to execute
     {
         mkdir -p $sample_path/latents
         sample_name=`basename $sample_path`
@@ -98,6 +105,6 @@ for sample_path in $sample_paths; do
         echo $p_idx >&4
     } &
 done
-# 使用 wait 命令阻塞当前进程，直到所有子进程全部执行完
+# Use the wait command to block the current process until all child processes have finished
 wait
 

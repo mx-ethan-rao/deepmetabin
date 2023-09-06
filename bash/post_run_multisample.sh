@@ -5,7 +5,7 @@ set -ex
 
 trap clean EXIT SIGTERM
 clean(){
-    # 全部结束后解绑文件描述符并删除管道
+    # Unbind the file descriptor and delete the pipe when all is said and done
     exec 4<&-
     exec 4>&-
     rm -f mylist
@@ -23,18 +23,18 @@ mkdir -p $root_path/post_bins
 
 thread_num=20
 
-# 创建一个管道
+# Create a FIFO
 mkfifo mylist
-# 给管道绑定文件描述符4
+# Bind a file descriptor 4 to the FIFO 
 exec 4<>mylist
-# 事先往管道中写入数据，要开启几个子进程就写入多少条数据
+# Write data to the pipeline beforehand, as many times as you want to start a child process.
 for ((i=0; i < $thread_num; i++)); do
     echo $i >&4
 done
 
 for sample_path in $sample_paths; do
     read p_idx <&4
-    # 这里的 & 会开启一个子进程执行
+    # The & here opens a child process to execute
     {
         export num_classes=`python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/calculate_bin_num.py \
                                 --fasta  $sample_path/contigs.fasta \
@@ -74,7 +74,7 @@ for sample_path in $sample_paths; do
         echo $p_idx >&4
     } &
 done
-# 使用 wait 命令阻塞当前进程，直到所有子进程全部执行完
+# Use the wait command to block the current process until all child processes have finished
 wait
 source /home/comp/zmzhang/software/anaconda3/bin/activate base
 cd $root_path/post_bins

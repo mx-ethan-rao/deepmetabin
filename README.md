@@ -98,8 +98,10 @@ python preprocessing.py --outdir out --fasta /path/to/catalogue.fna.gz --bamfile
 ```
 ### Sample run for DeepMetaBin
 ```bash
-bash ./bash/run_multisample.sh
+bash ./bash/run_multisample.sh multisample_name ./out/catalogue.fna.gz ./out/tnf.npz ./out/rkpm.npz ./out/contignames.npz ./out/concat_label.csv ./deepmetabin_out
 ```
+The binning result is under ./deepmetabin_out
+
 
 ## Reference Code
 
