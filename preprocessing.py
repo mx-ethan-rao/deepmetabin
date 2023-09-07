@@ -26,6 +26,8 @@ from src.utils import (
     vambtools
 )
 
+from src.utils.calculate_bin_num import gen_cannot_link as cal_num_bins
+
 
 
 
@@ -129,6 +131,7 @@ def calc_rpkm(outdir, bampaths, rpkmpath, jgipath, mincontiglength, refhash, nco
 
 def create_contigs_zarr_dataset(
         output_zarr_path: str,
+        num_bins: int,
         contigname_attrs: str,
         labels_path: str,
         tnf_attrs: str,
@@ -199,6 +202,7 @@ def create_contigs_zarr_dataset(
     root.attrs["tnf_list"] = tnf_list
     root.attrs["rpkm_list"] = rpkm_list
     root.attrs["label_list"] = label_list
+    root.attrs["num_bins"] = num_bins
 
 def run(outdir, fastapath, bampaths, rpkmpath, jgipath,
         mincontiglength, norefcheck, minalignscore, minid, subprocesses, output_zarr_path, label_path, logfile):
@@ -206,6 +210,7 @@ def run(outdir, fastapath, bampaths, rpkmpath, jgipath,
     log('Date and time is ' + str(datetime.datetime.now()), logfile, 1)
     begintime = time.time()
 
+    num_bins = cal_num_bins(fastapath, mincontiglength, 20, output='/tmp') * 7 // 8
     # Get TNFs, save as npz
     tnfs, contignames, contiglengths = calc_tnf(outdir, fastapath, mincontiglength, logfile)
 
@@ -217,6 +222,7 @@ def run(outdir, fastapath, bampaths, rpkmpath, jgipath,
 
     create_contigs_zarr_dataset(
             output_zarr_path=output_zarr_path,
+            num_bins=num_bins,
             contigname_attrs=contignames,
             labels_path=label_path,
             tnf_attrs=tnfs,

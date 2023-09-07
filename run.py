@@ -1,6 +1,7 @@
 import dotenv
 import hydra
 from omegaconf import DictConfig
+import os.path as osp
 
 # load environment variables from `.env` file if it exists
 # recursively searches for `.env` in all folders starting from work dir
@@ -21,6 +22,14 @@ def main(config: DictConfig):
     # - verifying experiment name is set when running in experiment mode
     # You can safely get rid of this line if you don't want those
     utils.extras(config)
+    if not osp.isabs(config['datamodule']['zarr_dataset_path']):
+        config['datamodule']['zarr_dataset_path'] = osp.join(__file__.rsplit('/', 1)[0], config['datamodule']['output'])
+    config['model']['zarr_dataset_path'] = config['datamodule']['zarr_dataset_path']
+    if not osp.isabs(config['datamodule']['output']):
+        config['datamodule']['output'] = osp.join(__file__.rsplit('/', 1)[0], config['datamodule']['output'])
+    config['datamodule']['must_link_path'] = osp.join(config['datamodule']['output'], 'must_link.csv')
+    config['model']['latent_save_path'] = osp.join(config['datamodule']['output'], 'latents')
+    config['model']['log_path'] = config['datamodule']['output']
 
     # Pretty print config using Rich library
     if config.get("print_config"):

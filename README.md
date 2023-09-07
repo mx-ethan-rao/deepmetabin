@@ -75,14 +75,14 @@ python preprocessing.py --outdir /path/to/out --fasta my_contigs.fna --bamfiles 
 ### Preprocess Dataset from sample data (estimated running time for samle data: 1h)
 Please download the sample dataset [sample_data](https://drive.google.com/drive/folders/1G8Wlws3HT4BtrBWG_KZk8w755MICpQXI?usp=sharing) and put it under deepmetabin folder
 ```bash
-python preprocessing.py --outdir out --fasta ./sample_data/contigs.fasta --bamfiles ./sample_data/contigs.map.sorted.bam --label_path ./sample_data/labels.csv
+python preprocessing.py --outdir sample_data --fasta ./sample_data/contigs.fasta --bamfiles ./sample_data/contigs.map.sorted.bam --label_path ./sample_data/labels.csv
 ```
 labels.csv is not used for training data and will be removed in next version
 
 ### Run for DeepMetaBin
 
 ```bash
-python run.py trainer.gpus=1 model.outpath deepmetabin_out datamodule.zarr_dataset_path our/data.zarr
+python run.py datamodule.zarr_dataset_path=sample_data/data.zarr datamodule.output=deepmetabin_out
 ```
 The binning result is under ./deepmetabin_out
 

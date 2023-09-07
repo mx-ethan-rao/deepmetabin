@@ -7,6 +7,8 @@ from torch.optim import Adam
 from sklearn.mixture import GaussianMixture
 from src.models.modules.gmvae import GMVAENet
 from src.models.losses import LossFunctions
+import zarr
+import os
 from src.utils.util import (
     summary_bin_list_from_batch, 
     log_ag_graph,
@@ -28,7 +30,7 @@ class DeepBinModel(pl.LightningModule):
         w_gauss=None,
         w_rec=None,
         rec_type="mse",
-        processed_zarr_dataset_path=None,
+        zarr_dataset_path=None,
         plot_graph_size=200,
         log_path="",
         k=5,
@@ -60,6 +62,9 @@ class DeepBinModel(pl.LightningModule):
         Attrs:
         """
         super().__init__()
+        if num_classes is None:
+            root = zarr.open(zarr_dataset_path, mode="r")
+            num_classes = root.attrs["num_bins"]
         self.network = GMVAENet(
             x_dim = input_size,
             z_dim = gaussian_size,
@@ -72,10 +77,10 @@ class DeepBinModel(pl.LightningModule):
         self.rec_type = rec_type
         self.k = k
         self.losses = LossFunctions()
-        self.processed_zarr_dataset_path = processed_zarr_dataset_path
         self.plot_graph_size = plot_graph_size
         self.log_path = log_path
         self.latent_save_path = latent_save_path
+        os.makedirs(self.latent_save_path, exist_ok=True)
         self.use_gmm = use_gmm
         self.gmm = GaussianMixture(n_components=num_classes, random_state=2021) if self.use_gmm else None
         self.count = 0

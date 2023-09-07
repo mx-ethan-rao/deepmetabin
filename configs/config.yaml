@@ -14,7 +14,7 @@ defaults:
 
   # experiment configs allow for version control of specific configurations
   # for example, use them to store best hyperparameters for each combination of model and datamodule
-  - experiment: null
+  - experiment: train_deepmetabin.yaml
 
   # config for hyperparameter optimization
   - hparams_search: null

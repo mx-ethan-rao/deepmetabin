@@ -5,7 +5,7 @@
 
 defaults:
   - override /mode: exp.yaml
-  - override /trainer: gmgat_trainer.yaml
+  - override /trainer: deepmetabin.yaml
   - override /model: deepmetabin.yaml
   - override /datamodule: deepmetabin.yaml
   - override /callbacks: default.yaml

@@ -253,7 +253,9 @@ def gen_cannot_link(fasta_path, binned_length, num_process, multi_mode=False, ou
                      hmm_output,
                      '--cut_tc',
                      '--cpu', str(num_process),
-                     os.path.split(__file__)[0] + '/marker.hmm',
+                    #  os.path.split(__file__)[0] + '/marker.hmm',
+                     './src/utils/marker.hmm',
+
                      contig_output,
                      ],
                     stdout=hmm_out_log,

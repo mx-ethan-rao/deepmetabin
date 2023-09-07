@@ -2,6 +2,7 @@ import torch
 import pytorch_lightning as pl
 from src.datamodules.datasets.graph_dataset import KNNGraphDataset
 from torch.utils.data import DataLoader, random_split
+import os
 
 
 class DeepMetaBinDataModule(pl.LightningDataModule):
@@ -14,6 +15,7 @@ class DeepMetaBinDataModule(pl.LightningDataModule):
         batch_size=1,
         sigma=1,
         num_workers=0,
+        output='./deepmetabin_out',
         pin_memory=False,
         use_neighbor_feature=False,
         k=15,
@@ -39,6 +41,7 @@ class DeepMetaBinDataModule(pl.LightningDataModule):
         self.must_link_path = must_link_path
         self.multisample =multisample
         self.sigma = sigma
+        os.makedirs(output, exist_ok=True)
 
     def prepare_data(self):
         pass
