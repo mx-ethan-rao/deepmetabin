@@ -15,6 +15,7 @@ from sklearn.semi_supervised import LabelPropagation
 from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.exceptions import ConvergenceWarning
 import warnings
+from sklearn.mixture import GaussianMixture
 
 
 class Gaussian:
@@ -995,3 +996,15 @@ class lbp(LabelPropagation):
                                                axis=1)]
         self.transduction_ = transduction.ravel()
         return self.transduction_
+
+def fit_gmm(latents, contignames, output_csv_path, num_bins):
+
+    gmm = GaussianMixture(n_components=num_bins, random_state=2021)
+    predicts = gmm.fit_predict(latents)
+    predic_probs = gmm.predict_proba(latents)
+    max_predic_probs = np.max(predic_probs, axis=1)
+
+    with open(output_csv_path, 'w') as f:
+        for contig, cluster in zip(contignames, predicts):
+            f.write(f'{cluster}\t{contig}\n')
+          

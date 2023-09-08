@@ -13,3 +13,4 @@ zarr_dataset_path: ""
 log_path: "/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/logs"
 k: 3
 latent_save_path: ""
+contignames_path: "sample_data/contignames.npz"

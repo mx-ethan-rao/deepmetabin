@@ -42,7 +42,7 @@ for sample_path in $sample_paths; do
                                 --output $sample_path`
 
         latent_path=`realpath $sample_path/latents/latent_*best.npy`
-        python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/vamb_the_gmm.py \
+        python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/gmm.py \
             --latent_path $latent_path \
             --contignames_path $sample_path/contignames.npz \
             --output_csv_path $sample_path/gmm.csv \

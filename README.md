@@ -82,7 +82,7 @@ labels.csv is not used for training data and will be removed in next version
 ### Run for DeepMetaBin
 
 ```bash
-python run.py datamodule.zarr_dataset_path=sample_data/data.zarr datamodule.output=deepmetabin_out
+python run.py datamodule.zarr_dataset_path=sample_data/data.zarr datamodule.output=deepmetabin_out model.contignames_path=sample_data/contignames.npz
 ```
 The binning result is under ./deepmetabin_out
 

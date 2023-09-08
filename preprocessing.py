@@ -65,6 +65,8 @@ def calc_tnf(outdir, fastapath, mincontiglength, logfile):
     vambtools.write_npz(os.path.join(outdir, 'tnf.npz'), tnfs)
     vambtools.write_npz(os.path.join(
         outdir, 'lengths.npz'), contiglengths)
+    vambtools.write_npz(os.path.join(
+        outdir, 'contignames.npz'), contignames)
 
     elapsed = round(time.time() - begintime, 2)
     ncontigs = len(contiglengths)
