@@ -17,6 +17,7 @@ from src.utils.util import (
     evaluate,
     refine_gmm,
     fit_gmm,
+    get_binning_result,
 )
 
 
@@ -36,7 +37,8 @@ class DeepBinModel(pl.LightningModule):
         plot_graph_size=200,
         log_path="",
         k=5,
-        latent_save_path="",
+        result_path="",
+        contig_path="",
         use_gmm=True,
         *args,
         **kwargs,
@@ -67,6 +69,8 @@ class DeepBinModel(pl.LightningModule):
         if num_classes is None:
             root = zarr.open(zarr_dataset_path, mode="r")
             self.num_classes = root.attrs["num_bins"]
+        else:
+            self.num_classes = num_classes
         self.network = GMVAENet(
             x_dim = input_size,
             z_dim = gaussian_size,
@@ -81,9 +85,10 @@ class DeepBinModel(pl.LightningModule):
         self.losses = LossFunctions()
         self.plot_graph_size = plot_graph_size
         self.log_path = log_path
-        self.latent_save_path = latent_save_path
-        os.makedirs(self.latent_save_path, exist_ok=True)
+        self.result_path = result_path
+        os.makedirs(self.result_path, exist_ok=True)
         self.contignames_path = contignames_path
+        self.contig_path = contig_path
         self.use_gmm = use_gmm
         self.gmm = GaussianMixture(n_components=num_classes, random_state=2021) if self.use_gmm else None
         self.count = 0
@@ -158,23 +163,25 @@ class DeepBinModel(pl.LightningModule):
         latent = out_net["gaussian"]
         bin_tensor = prob_cat.argmax(-1)
         gd_bin_list, result_bin_list, non_labeled_id_list = summary_bin_list_from_batch(batch, bin_tensor)
-        if self.current_epoch < 100:
-            self.use_gmm = False
-            self.log("val/gmm_F1", 0.5, on_step=False, on_epoch=True, prog_bar=False)
-        else:
-            self.use_gmm = False
-        # add gmm to the latent vector, wrap a function here.
-        if self.use_gmm:
-            self.log_gmm(
-                batch=batch,
-                latent=latent
-            )
+        # if self.current_epoch < 100:
+        #     self.use_gmm = False
+        #     self.log("val/gmm_F1", 0.5, on_step=False, on_epoch=True, prog_bar=False)
+        # else:
+        #     self.use_gmm = False
+        # # add gmm to the latent vector, wrap a function here.
+        # if self.use_gmm:
+        #     self.log_gmm(
+        #         batch=batch,
+        #         latent=latent
+        #     )
+        self.log("val/gmm_F1", 0.5, on_step=False, on_epoch=True, prog_bar=False)
 
         
         # Save latent.
-        latent_save_path = "{}/latent_{}_{}".format(self.latent_save_path, self.current_epoch, self.global_step)
+        # result_path = "{}/latent_{}_{}".format(self.result_path, self.current_epoch, self.global_step)
+        result_path = "{}/latent.npy".format(self.result_path)
         latent_feature = latent.numpy()
-        np.save(latent_save_path, latent_feature)
+        np.save(result_path, latent_feature)
         # latent = np.load(args.latent_path)
         contignames = np.load(self.contignames_path)['arr_0']
         # contignames = np.squeeze(contignames)
@@ -183,7 +190,8 @@ class DeepBinModel(pl.LightningModule):
         # mask = mask['arr_0']
         # contignames = ['NODE_'+str(m) for m in contignames]
 
-        fit_gmm(latent_feature, contignames, os.path.join(self.latent_save_path, 'gmm.csv'), self.num_classes)
+        fit_gmm(latent_feature, contignames, os.path.join(self.result_path, 'gmm.csv'), self.num_classes)
+        get_binning_result(self.contig_path, os.path.join(self.result_path, 'gmm.csv'), os.path.join(self.result_path, 'pre_bins'))
         
 
     def configure_optimizers(self):
@@ -252,8 +260,8 @@ class DeepBinModel(pl.LightningModule):
         if (len(self.epoch_list) - best_idx - 1 >= patience) or (current_epoch >= max_epoch):
         # if len(self.epoch_list) - best_idx - 1 >= patience:
             import os
-            os.rename("{}/latent_{}_{}.npy".format(self.latent_save_path, current_best[1], current_best[2]), \
-                "{}/latent_{}_{}_best.npy".format(self.latent_save_path, current_best[1], current_best[2]))
+            os.rename("{}/latent_{}_{}.npy".format(self.result_path, current_best[1], current_best[2]), \
+                "{}/latent_{}_{}_best.npy".format(self.result_path, current_best[1], current_best[2]))
             import sys
             sys.exit(0)
 

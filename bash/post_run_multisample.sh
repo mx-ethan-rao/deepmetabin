@@ -54,7 +54,7 @@ for sample_path in $sample_paths; do
         checkm lineage_wf -t 100 -x fasta --tab_table -f checkm.tsv ./ ./
         cd ..
         source /home/comp/zmzhang/software/anaconda3/bin/activate SemiBin
-        python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/post_cluster_processing.py \
+        python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/secondary_clustering.py \
             --fasta_path gmm_bins \
             --orignal_binning_file gmm.csv \
             --contig_path contignames.npz \

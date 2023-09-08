@@ -150,3 +150,5 @@ graphs/
 data/
 cami_low.zarr/
 tmp/
+deepmetabin_out/
+sample_data/

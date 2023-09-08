@@ -16,6 +16,7 @@ from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.exceptions import ConvergenceWarning
 import warnings
 from sklearn.mixture import GaussianMixture
+import os
 
 
 class Gaussian:
@@ -1006,5 +1007,51 @@ def fit_gmm(latents, contignames, output_csv_path, num_bins):
 
     with open(output_csv_path, 'w') as f:
         for contig, cluster in zip(contignames, predicts):
-            f.write(f'{cluster}\t{contig}\n')
+            # f.write(f'{cluster}\t{contig}\n')
+            f.write(f'{contig}\t{cluster}\n')
+
+def get_binning_result(contig_path, cluster_result, out):
+    contigs = contig_path
+    contigs_file = open(contigs, 'r')
+    contigs_map = {}
+    header = ""
+    content = ""
+    for line in contigs_file:
+        if line == "": continue
+        if line[0] == '>':
+            if header != "": contigs_map[header] = content
+            # if len(sys.argv) == 5 and sys.argv[4] == 'idonly':
+            #     header = '_'.join(line.split('_')[:2])[1:]
+            # else:
+            header = '_'.join(line.split('_')[:2])
+            header = line.split()[0][1:]
+            content = ""
+        else: content += line.strip()
+    contigs_map[header] = content
+    contigs_file.close()
+
+    bin_map = {}
+    cluster = cluster_result
+    cluster_file = open(cluster, 'r')
+    for line in cluster_file:
+        if line == "": continue
+        if ',' in line:
+            items = line.strip().split(',')
+        else:
+            items = line.strip().split()
+        if items[1] not in bin_map: bin_map[items[1]] = []
+        bin_map[items[1]].append(items[0])
+    cluster_file.close()
+
+
+    output = out
+    if not os.path.isdir(output):
+        os.system(f"mkdir {output}")
+    for file in os.listdir(output):
+        if ".fasta" in file: os.system("rm " + output + '/' + file)
+    for bin in bin_map:
+        out = open(output + "/cluster." + bin + ".fasta", 'w')
+        for header in bin_map[bin]:
+            out.write('>' + header + '\n' + contigs_map[header] + '\n')
+        out.close()
           

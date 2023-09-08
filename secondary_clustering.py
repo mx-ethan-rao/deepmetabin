@@ -10,7 +10,7 @@ import shutil
 import multiprocessing
 import traceback
 from multiprocessing.pool import Pool
-from bh_kmeans import bh_kmeans
+from src.utils.bh_kmeans import bh_kmeans
 import numpy as np
 import glob
 from collections import defaultdict
@@ -262,7 +262,8 @@ def gen_cannot_link(fasta_path, binned_length, num_process, bin_num_mode, multi_
                      hmm_output,
                      '--cut_tc',
                      '--cpu', str(num_process),
-                     os.path.split(__file__)[0] + '/marker.hmm',
+                    #  os.path.split(__file__)[0] + '/marker.hmm',
+                     './src/utils/marker.hmm',
                      contig_output,
                      ],
                     stdout=hmm_out_log,
@@ -366,13 +367,14 @@ def purify_must_link(ml_indices, cl_indices):
             
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Split samples before binning')
-    parser.add_argument('--fasta_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/gmm_bins', help='Fasta path (.fasta)')
-    parser.add_argument('--orignal_binning_file', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/gmm.csv', help='ignore contig length under this threshold')
-    parser.add_argument('--contig_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/contignames.npz', help='Output path for all splitted samples')
+    # parser.add_argument('--fasta_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/gmm_bins', help='Fasta path (.fasta)')
+    # parser.add_argument('--orignal_binning_file', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/gmm.csv', help='ignore contig length under this threshold')
+    parser.add_argument('--primary_out', type=str, default='./deepmetabin_out', help='Output directory for primary clustering')
+    parser.add_argument('--contigname_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/contignames.npz', help='Output path for all splitted samples')
     parser.add_argument('--output_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/postprocess1', help='Output path for all splitted samples')
-    parser.add_argument('--must_link_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/must_link.csv', help='Output path for all splitted samples')
-    parser.add_argument('--latent_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/latents/latent_80_21141_best.npy', help='Output path for all splitted samples')
-    parser.add_argument('--checkm_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/gmm_bins/checkm.tsv', help='Output path for all splitted samples')
+    # parser.add_argument('--must_link_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/must_link.csv', help='Output path for all splitted samples')
+    # parser.add_argument('--latent_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/latents/latent_80_21141_best.npy', help='Output path for all splitted samples')
+    # parser.add_argument('--checkm_path', type=str, default='/datahome/datasets/ericteam/csmxrao/DeepMetaBin/tmp/hlj10x/gmm_bins/checkm.tsv', help='Output path for all splitted samples')
     parser.add_argument('--binned_length', type=int, default=1000, help='ignore contig length under this threshold')
     parser.add_argument('--mode', type=str, default='max', help='Scg bin number mode (max or median)')
 
@@ -380,7 +382,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # fasta_path = '/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI1/low/deepmetabin/cami-m2-latent/gmm_bins'
     # orignal_binning_file = '/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI1/low/deepmetabin/cami-m2-latent/gmm.csv'
-    # contig_path = '/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI1/low/deepmetabin/cami-m2-latent/contignames.npy'
+    # contigname_path = '/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI1/low/deepmetabin/cami-m2-latent/contignames.npy'
     # output_path = '/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI1/medium/postprocess_001/out'
     # output_path = sys.argv[1]
     # must_link_path = '/datahome/datasets/ericteam/csmxrao/DeepMetaBin/CAMI1/medium/postprocess_001/must_link.csv'
@@ -390,12 +392,12 @@ if __name__ == "__main__":
 
     os.makedirs(args.output_path, exist_ok=True)
 
-    fasta_bin = glob.glob(f'{args.fasta_path}/cluster.*.fasta')
-    contignames = np.load(args.contig_path)['arr_0']
-    latent = np.load(args.latent_path)
-    bin_dict = read_bins(args.orignal_binning_file)
-    must_link = read_must_link(args.must_link_path, contignames)
-    issue_bins = get_issue_bins(args.checkm_path)
+    fasta_bin = glob.glob(os.path.join(args.primary_out, 'results', 'pre_bins', 'cluster.*.fasta'))
+    contignames = np.load(args.contigname_path)['arr_0']
+    latent = np.load(os.path.join(args.primary_out, 'results', 'latent.npy'))
+    bin_dict = read_bins(os.path.join(args.primary_out, 'results', 'gmm.csv'))
+    must_link = read_must_link(os.path.join(args.primary_out, 'must_link.csv'), contignames)
+    issue_bins = get_issue_bins(os.path.join(args.primary_out, 'results', 'pre_bins', 'checkm.tsv'))
     # issue_bins = [0, 11, 17, 23, 25, 26, 29, 39, 6, 9, 31,18, 30, 12]
     post_bin_list = []
 

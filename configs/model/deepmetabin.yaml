@@ -12,5 +12,6 @@ plot_graph_size: 1000
 zarr_dataset_path: ""
 log_path: "/datahome/datasets/ericteam/csmxrao/DeepMetaBin/mingxing/Metagenomic-Binning/logs"
 k: 3
-latent_save_path: ""
+result_path: ""
 contignames_path: "sample_data/contignames.npz"
+contig_path: "sample_data/contigs.fasta"

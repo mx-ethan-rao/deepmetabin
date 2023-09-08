@@ -33,11 +33,14 @@ The code repository is organized into the following components:
 - :black_square_button: Released the arXiv version of DeepMetaBin (Under review).
 - :white_check_mark: Released the early version of sample code.
 
-## Software requirements
-* [Gurobi>=10.0.1](https://anaconda.org/Gurobi/gurobi) (need to request for license)
-* [bwa>=0.7.17](https://github.com/lh3/bwa)
-* [samtools>=1.9](https://github.com/samtools/samtools)
-* [checkM>=1.1.2](https://github.com/Ecogenomics/CheckM)
+## DeepMetaBin was tested using the following software
+* [Gurobi==10.0.1](https://anaconda.org/Gurobi/gurobi) (need to request for license)
+* [bwa==0.7.17](https://github.com/lh3/bwa)
+* [samtools==1.9](https://github.com/samtools/samtools)
+* [checkM==1.1.2](https://github.com/Ecogenomics/CheckM)
+* [HMMER==3.3.2](http://hmmer.org/)
+* [Prodigal==2.6.3 ](https://github.com/hyattpd/Prodigal)
+* [FragGeneScan==1.31 (optional)](https://sourceforge.net/projects/fraggenescan/)
 
 ## Examples and experiments run on a Linux server with the following specifications:
 * Dell PowerEdge R6525
@@ -82,8 +85,16 @@ labels.csv is not used for training data and will be removed in next version
 ### Run for DeepMetaBin
 
 ```bash
-python run.py datamodule.zarr_dataset_path=sample_data/data.zarr datamodule.output=deepmetabin_out model.contignames_path=sample_data/contignames.npz
+python run.py datamodule.zarr_dataset_path=sample_data/data.zarr datamodule.output=deepmetabin_out model.contignames_path=sample_data/contignames.npz model.contig_path=sample_data/contigs.fasta
 ```
+You can specify the trainning epochs, e.g trainer.max_epochs=500
+```bash
+cd ./deepmetabin_out/pre_bins && checkm lineage_wf -t 100 -x fasta --tab_table -f checkm.tsv ./ ./
+```
+```bash
+python secondary_clustering.py --primary_out ./deepmetabin_out --contigname_path ./sample_data/contignames.npz --output_path  ./deepmetabin_out/results/secondary_bins --binned_length 1000 
+```
+
 The binning result is under ./deepmetabin_out
 
 ## Multiple sample
