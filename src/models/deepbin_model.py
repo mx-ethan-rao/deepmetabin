@@ -162,7 +162,7 @@ class DeepBinModel(pl.LightningModule):
         prob_cat = out_net["prob_cat"]
         latent = out_net["gaussian"]
         bin_tensor = prob_cat.argmax(-1)
-        gd_bin_list, result_bin_list, non_labeled_id_list = summary_bin_list_from_batch(batch, bin_tensor)
+        # gd_bin_list, result_bin_list, non_labeled_id_list = summary_bin_list_from_batch(batch, bin_tensor)
         # if self.current_epoch < 100:
         #     self.use_gmm = False
         #     self.log("val/gmm_F1", 0.5, on_step=False, on_epoch=True, prog_bar=False)

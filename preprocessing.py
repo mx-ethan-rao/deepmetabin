@@ -135,7 +135,7 @@ def create_contigs_zarr_dataset(
         output_zarr_path: str,
         num_bins: int,
         contigname_attrs: str,
-        labels_path: str,
+        # labels_path: str,
         tnf_attrs: str,
         rpkm_attrs: str,
         # ag_graph_path: str,
@@ -171,8 +171,8 @@ def create_contigs_zarr_dataset(
         - pe_graph_edges (group -> list): relevant edge in pe graph.
     """
     root = zarr.open(output_zarr_path, mode="w")
-    bin_list = summary_bin_list_from_csv(labels_path)
-    num_cluster = len(bin_list)
+    # bin_list = summary_bin_list_from_csv(labels_path)
+    # num_cluster = len(bin_list)
 
 
     contig_id_list = []
@@ -187,27 +187,27 @@ def create_contigs_zarr_dataset(
         # if contig_length >= long_contig_threshold:
         #     long_contig_id_list.append(i)
         if contig_length >= filter_threshold:
-            have_label = False
-            for j in range(num_cluster):
-                if contig_id in bin_list[j]:
-                    labels = j
-                    have_label = True
-            if have_label is False:
-                labels = -1 # Use -1 to hold unlabeled contig (node)
+            # have_label = False
+            # for j in range(num_cluster):
+            #     if contig_id in bin_list[j]:
+            #         labels = j
+            #         have_label = True
+            # if have_label is False:
+            #     labels = -1 # Use -1 to hold unlabeled contig (node)
 
             contig_id_list.append(contig_id)
             tnf_list.append(list(tnf_attrs[i]))
             rpkm_list.append(list(rpkm_attrs[i]))
-            label_list.append(labels)
+            # label_list.append(labels)
 
     root.attrs["contig_id_list"] = contig_id_list
     root.attrs["tnf_list"] = tnf_list
     root.attrs["rpkm_list"] = rpkm_list
-    root.attrs["label_list"] = label_list
+    # root.attrs["label_list"] = label_list
     root.attrs["num_bins"] = num_bins
 
 def run(outdir, fastapath, bampaths, rpkmpath, jgipath,
-        mincontiglength, norefcheck, minalignscore, minid, subprocesses, output_zarr_path, label_path, logfile):
+        mincontiglength, norefcheck, minalignscore, minid, subprocesses, output_zarr_path, logfile):
 
     log('Date and time is ' + str(datetime.datetime.now()), logfile, 1)
     begintime = time.time()
@@ -226,7 +226,7 @@ def run(outdir, fastapath, bampaths, rpkmpath, jgipath,
             output_zarr_path=output_zarr_path,
             num_bins=num_bins,
             contigname_attrs=contignames,
-            labels_path=label_path,
+            # labels_path=label_path,
             tnf_attrs=tnfs,
             rpkm_attrs=rpkms,
             # ag_graph_path=self.ag_graph_path,
@@ -261,8 +261,8 @@ def main():
         title='Output (required)', description=None)
     reqos.add_argument('--outdir', metavar='', required=True,
                        help='output directory to create')
-    reqos.add_argument('--label_path', metavar='', required=True,
-                       help='label path')
+    # reqos.add_argument('--label_path', metavar='', required=True,
+    #                    help='label path')
 
     # TNF arguments
     tnfos = parser.add_argument_group(
@@ -335,7 +335,7 @@ def main():
             minid=args.minid,
             subprocesses=subprocesses,
             output_zarr_path=output_zarr_path,
-            label_path=args.label_path,
+            # label_path=args.label_path,
             logfile=logfile)
 
 

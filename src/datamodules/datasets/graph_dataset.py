@@ -142,7 +142,7 @@ class KNNGraphDataset(Dataset):
         contig_id_list = root.attrs["contig_id_list"]
         tnf_list = root.attrs["tnf_list"]
         rpkm_list = root.attrs["rpkm_list"]
-        label_list = root.attrs["label_list"]
+        # label_list = root.attrs["label_list"]
 
         data_list = []
         rkpm_array = np.array(rpkm_list, dtype="float32")
@@ -157,10 +157,10 @@ class KNNGraphDataset(Dataset):
             item = {}
             idx = contig_id_list.index(i)
             feature = all_feature[idx]
-            labels = np.array([label_list[idx]], dtype="float32")
+            # labels = np.array([label_list[idx]], dtype="float32")
             contig_id = np.array([i], dtype="float32")
             item["feature"] = feature
-            item["labels"] = labels
+            # item["labels"] = labels
             item["id"] = contig_id
             data_list.append(item)
         return data_list, contig_id_list
