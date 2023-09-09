@@ -72,13 +72,13 @@ pip install -r requirements.txt
 ```bash
 bwa index my_contigs.fna 
 bwa mem contigs.fasta reads_file_1 reads_file_2 -t 100 | samtools sort -@ 40 -n -o contigs.map.sorted.bam
-python preprocessing.py --outdir /path/to/out --fasta my_contigs.fna --bamfiles *.bam --label_path /path/to/label.csv
+python preprocessing.py --outdir /path/to/out --fasta my_contigs.fna --bamfiles *.bam -m 1000
 ```
 
-### Preprocess Dataset from sample data (estimated running time for samle data: 1h)
+### Preprocess Dataset from sample data (estimated running time for samle data: 45min)
 Please download the sample dataset [sample_data](https://drive.google.com/drive/folders/1G8Wlws3HT4BtrBWG_KZk8w755MICpQXI?usp=sharing) and put it under deepmetabin folder
 ```bash
-python preprocessing.py --outdir sample_data --fasta ./sample_data/contigs.fasta --bamfiles ./sample_data/contigs.map.sorted.bam
+python preprocessing.py --outdir sample_data --fasta ./sample_data/contigs.fasta --bamfiles ./sample_data/contigs.map.sorted.bam -m 1000
 ```
 
 ### Run for DeepMetaBin
@@ -101,16 +101,24 @@ The binning result is under ./deepmetabin_out
 ```bash
 python concatenate.py /path/to/catalogue.fna.gz /path/to/assemblies/sample1/contigs.fasta /path/to/assemblies/sample2/contigs.fasta  [ ... ]
 bwa index /path/to/catalogue.fna.gz
-
 bwa mem -p /path/to/reads_file_1 /path/to/catalogue.fna.gz -t 100 | samtools sort -@ 40 -n -o /path/to/output_bamfile
-
-python preprocessing.py --outdir out --fasta /path/to/catalogue.fna.gz --bamfiles /path/to/bamfiles/*.bam --outdir /path/to/out --label_path /path/to/labels/*.csv
 ```
+
+```bash
+python preprocessing.py --outdir out --fasta /path/to/catalogue.fna.gz --bamfiles /path/to/bamfiles/*.bam --outdir /path/to/out -m 1000
+python ./src/utils/split_samples.py \
+        *contigs.fast \
+        --concat_tnf ./out/tnf.npz \
+        --concat_rkpm ./out/rpkm.npz \
+        --concat_contignames ./out/contignames.npz \
+        --out ./out/multisample_out
+```
+
 ### Sample run for DeepMetaBin
 ```bash
-bash ./bash/run_multisample.sh multisample_name ./out/catalogue.fna.gz ./out/tnf.npz ./out/rkpm.npz ./out/contignames.npz ./out/concat_label.csv ./deepmetabin_out
+bash ./bash/run_multisample.sh multisample_name ./out/multisample_out/tnf.npz ./out/multisample_out/rkpm.npz ./out/multisample_out/ontignames.npz ./out/multisample_out
 ```
-The binning result is under ./deepmetabin_out
+The binning result is under ./out/multisample_out
 
 
 ## Reference Code

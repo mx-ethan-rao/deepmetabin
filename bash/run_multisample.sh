@@ -17,12 +17,10 @@ clean(){
 
 cd $(dirname $0)
 multisample_name=$1
-contig_dir=$2
 concat_tnf=$3
 concat_rkpm=$4
 concat_contignames=$5
-concat_label=$6
-out=$7
+out=$6
 # multisample_name=cami2_Oral
 # contig_dir=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/spades/Oral
 # concat_tnf=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/vamb_out/tnf.npz
@@ -31,28 +29,28 @@ out=$7
 # concat_label=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/vamb/labels/labels.csv
 # out=/datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/CAMI2/binning_results/Oral/deepmetabin
 
-mkdir -p $(dirname $0)/data/$multisample_name
-contigs=`ls $contig_dir/*/contigs.fasta`
+# mkdir -p $(dirname $0)/data/$multisample_name
 
-source /home/comp/zmzhang/software/anaconda3/bin/activate base
 
-if [ ! $1 ];then
-    python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/split_samples.py \
-        $contigs \
-        --concat_tnf $concat_tnf \
-        --concat_rkpm $concat_rkpm \
-        --concat_contignames $concat_contignames \
-        --concat_label $concat_label \
-        --out $out
-    export sample_paths=`ls -d $out/S*`
-    fifoname=0
-else
-    sample_paths=$out/${1//:/:$out\/}
-    export sample_paths=${sample_paths//:/ }
-    fifoname=$1
-fi
+export sample_paths=`ls -d $out/S*`
+fifoname=0
+
+# if [ ! $1 ];then
+#     python ./src/utils/split_samples.py \
+#         $contigs \
+#         --concat_tnf $concat_tnf \
+#         --concat_rkpm $concat_rkpm \
+#         --concat_contignames $concat_contignames \
+#         --out $out
+#     export sample_paths=`ls -d $out/S*`
+#     fifoname=0
+# else
+#     sample_paths=$out/${1//:/:$out\/}
+#     export sample_paths=${sample_paths//:/ }
+#     fifoname=$1
+# fi
 # export sample_paths=`ls -d $out/S*`
-thread_num=20
+thread_num=2
 
 # Create a FIFO
 mkfifo mylist_$fifoname
@@ -67,7 +65,6 @@ done
 
 for sample_path in $sample_paths; do
     read p_idx <&4
-    sleep 1
     # The & here opens a child process to execute
     {
         mkdir -p $sample_path/latents
@@ -80,7 +77,7 @@ for sample_path in $sample_paths; do
         #     --rpkm_feature_path $sample_path/rpkm.npz \
         #     --filter_threshold 1000
 
-        export num_classes=`python /datahome/datasets/ericteam/zmzhang/csmxrao/DeepMetaBin/mingxing/deepmetabin/src/utils/calculate_bin_num.py \
+        export num_classes=`python ./src/utils/calculate_bin_num.py \
                                 --fasta  $sample_path/contigs.fasta \
                                 --binned_length 1000 \
                                 --output $sample_path`
@@ -89,18 +86,16 @@ for sample_path in $sample_paths; do
         input_dim=`expr 103 + ${#tmp[@]}`
         python run.py experiment=train_deepbin \
             name=$multisample_name-$sample_name \
-            model.gaussian_size=32 \
-            model.k=3 \
-            model.log_path=$(pwd)/logs \
-            model.latent_save_path=$sample_path/latents \
             model.input_size=$input_dim \
-            datamodule.k=3 \
-            datamodule.must_link_path=$sample_path/must_link.csv \
-            datamodule.zarr_dataset_path=$(pwd)/data/$multisample_name/$sample_name.zarr \
+            datamodule.zarr_dataset_path=$sample_path/$data.zarr \
             datamodule.multisample=True \
-            trainer.check_val_every_n_epoch=3 \
-            model.num_classes=$num_classes
-
+            model.num_classes=$num_classes \
+            datamodule.output=$sample_path/deepmetabin_out \
+            model.contignames_path=$sample_path/contignames.npz \
+            model.contig_path=$sample_path/contigs.fasta
+        
+        cd $sample_path/deepmetabin_out/pre_bins && checkm lineage_wf -t 100 -x fasta --tab_table -f checkm.tsv ./ ./
+        python secondary_clustering.py --primary_out $sample_path/deepmetabin_out --contigname_path $sample_path/deepmetabin_out/contignames.npz --output_path  $sample_path/deepmetabin_out/results/secondary_bins --binned_length 1000 
 
         echo $p_idx >&4
     } &

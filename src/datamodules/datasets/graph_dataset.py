@@ -177,6 +177,8 @@ class KNNGraphDataset(Dataset):
         Returns:
             data_list (list): list format dataset.
         """
+        if self.multisample:
+            threshold = 6
         Gau = Gaussian()
         id_list = []
         feature_list = []
